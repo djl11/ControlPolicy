@@ -53,12 +53,20 @@ class TK_Interface:
         plt.show()
 
     def update_gui(self, event):
+
+        # space, vel, and time resolutions
         self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (float(self.e_num_actions.get()) - 1)
         self.sv_vel_res.set('      vel res:        %.2f   cm/s    ' % self.vel_res)
         self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (float(self.e_num_positions.get()) - 1)
         self.sv_pos_res.set('      pos res:        %.2f   cm    ' % self.pos_res)
         self.control_freq = self.vel_res / self.pos_res
         self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
+
+        # initial state
+        self.s_init_pos.config(from_=float(self.e_min_pos.get()), to=float(self.e_max_pos.get()), resolution=self.pos_res, tickinterval=(float(self.e_max_pos.get())-float(self.e_min_pos.get()))/5)
+        self.s_init_pos.set(float(self.e_max_pos.get()))
+        self.s_init_vel.config(from_=float(self.e_min_vel.get()), to=float(self.e_max_vel.get()), resolution=self.vel_res, tickinterval=(float(self.e_max_vel.get())-float(self.e_min_vel.get()))/5)
+        self.s_init_vel.set(float(self.e_max_vel.get()))
 
         self.tk_root.update_idletasks()
 
@@ -78,10 +86,10 @@ class TK_Interface:
 
         self.e_min_vel.insert(tkinter.END, '0')
         self.e_max_vel.insert(tkinter.END, '20')
-        self.e_num_actions.insert(tkinter.END, '11')
+        self.e_num_actions.insert(tkinter.END, '6')
         self.e_min_pos.insert(tkinter.END, '0')
         self.e_max_pos.insert(tkinter.END, '50')
-        self.e_num_positions.insert(tkinter.END, '251')
+        self.e_num_positions.insert(tkinter.END, '126')
         self.e_dist_factor.insert(tkinter.END, '1')
         self.e_acc_factor.insert(tkinter.END, '1')
         self.e_discount.insert(tkinter.END, '0.99')
@@ -90,7 +98,7 @@ class TK_Interface:
 
         self.update_gui('dummy_event')
 
-    def BP_compute(self):
+    def compute(self):
 
         print('computing...')
 
@@ -149,14 +157,20 @@ class TK_Interface:
         # plot trajectories
         self.plot()
 
+    # Button Press Functions #
+    #------------------------#
+
+    def BP_compute(self):
+        self.compute()
+
     def BP_reset(self):
         self.reset_gui()
 
     def BP_terminate(self):
         os._exit(os.EX_OK)
 
-
-
+    # Main GUI Loop Funcion #
+    #-----------------------#
 
     def tkinter_loop(self):
 
@@ -348,22 +362,37 @@ class TK_Interface:
         row += 1
         column -= 5
 
-        # Reset GUI #
-        #-----------#
+        # Initial State #
+        #---------------#
 
-        self.reset_gui()
+        column += 3
 
-        # Sliders #
-        #---------#
+        l_init_cond = tkinter.Label(self.tk_root, text='Initial State')
+        l_init_cond.grid(row=row, column=column)
 
-        #s2 = tkinter.Scale(self.tk_root, from_=float(self.e_min_pos.get()), to=float(self.e_max_pos.get()), resolution=0.01, tickinterval=6, length=300, width=45,
-                           #orient=tkinter.HORIZONTAL, command=lambda v: setattr(scale, 'value2', v))
-        #s2.set(0)
-        #s2.pack()
-        #s3 = tkinter.Scale(root, from_=-10, to=10, resolution=0.01, tickinterval=4, length=300, width=45,
-                           #orient=tkinter.HORIZONTAL, command=lambda v: setattr(scale, 'value3', v))
-        #s3.set(0)
-        #s3.pack()
+        row += 1
+        column -= 3
+
+        l_init_pos = tkinter.Label(self.tk_root, text='init pos')
+        l_init_pos.grid(row=row, column=column)
+
+        column += 1
+
+        self.s_init_pos = tkinter.Scale(self.tk_root, length=300, width=45, orient=tkinter.HORIZONTAL)
+        self.s_init_pos.grid(row=row, column=column)
+
+        column += 1
+
+        l_init_vel = tkinter.Label(self.tk_root, text='init vel')
+        l_init_vel.grid(row=row, column=column)
+
+        column += 1
+
+        self.s_init_vel = tkinter.Scale(self.tk_root, length=300, width=45, orient=tkinter.HORIZONTAL)
+        self.s_init_vel.grid(row=row, column=column)
+
+        row += 1
+        column -= 3
 
         # Buttons #
         #---------#
@@ -390,6 +419,12 @@ class TK_Interface:
 
         b_terminate = tkinter.Button(self.tk_root, text='Terminate', command=self.BP_terminate)
         b_terminate.grid(row=row, column=column)
+
+        # Initialise GUI #
+        #----------------#
+
+        self.reset_gui()
+        self.compute()
 
         # start mainloop #
         #----------------#
