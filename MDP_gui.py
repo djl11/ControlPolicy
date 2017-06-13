@@ -1,0 +1,407 @@
+import os
+import mdptoolbox
+import numpy
+import math
+import tkinter
+import threading
+import matplotlib.pyplot as plt
+
+class TK_Interface:
+
+    def __init__(self):
+        self.pos = []
+        self.vel = []
+        self.acc = []
+        self.time = []
+
+    def plot(self):
+
+        plt.close()
+
+        fig = plt.figure()
+
+        pos_graph = fig.add_subplot(3, 1, 1)
+        pos_graph.set_xlim(0, max(self.time))
+        min_pos = min(self.pos)
+        max_pos = max(self.pos)
+        mid_pos = (max_pos+min_pos)/2
+        pos_graph.set_ylim(mid_pos-(mid_pos-min_pos)*1.1, mid_pos+(max_pos-mid_pos)*1.1)
+        pos_graph.plot(self.time, self.pos, 'b')
+        pos_graph.set_title('Displacement (cm)')
+
+        vel_graph = fig.add_subplot(3, 1, 2)
+        vel_graph.set_xlim(0, max(self.time))
+        min_vel = min(self.vel)
+        max_vel = max(self.vel)
+        mid_vel = (max_vel+min_vel)/2
+        vel_graph.set_ylim(mid_vel - (mid_vel - min_vel) * 1.1, mid_vel + (max_vel - mid_vel) * 1.1)
+        vel_graph.plot(self.time, self.vel, 'g')
+        vel_graph.set_title('Velocity (cm/s)')
+
+        acc_graph = fig.add_subplot(3, 1, 3)
+        acc_graph.set_xlim(0, max(self.time))
+        min_acc = min(self.acc)
+        max_acc = max(self.acc)
+        mid_acc = (max_acc+min_acc)/2
+        acc_graph.set_ylim(mid_acc - (mid_acc - min_acc) * 1.1, mid_acc + (max_acc - mid_acc) * 1.1)
+        acc_graph.plot(self.time, self.acc, 'r')
+        acc_graph.set_xlabel('Time (s)')
+        acc_graph.set_title('Acceleration (cm/s^2)')
+
+        plt.tight_layout()  # turn on tight-layout
+
+        plt.show()
+
+    def update_gui(self, event):
+        self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (float(self.e_num_actions.get()) - 1)
+        self.sv_vel_res.set('      vel res:        %.2f   cm/s    ' % self.vel_res)
+        self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (float(self.e_num_positions.get()) - 1)
+        self.sv_pos_res.set('      pos res:        %.2f   cm    ' % self.pos_res)
+        self.control_freq = self.vel_res / self.pos_res
+        self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
+
+        self.tk_root.update_idletasks()
+
+    def reset_gui(self):
+
+        self.e_min_vel.delete(0, tkinter.END)
+        self.e_max_vel.delete(0, tkinter.END)
+        self.e_num_actions.delete(0, tkinter.END)
+        self.e_min_pos.delete(0, tkinter.END)
+        self.e_max_pos.delete(0, tkinter.END)
+        self.e_num_positions.delete(0, tkinter.END)
+        self.e_dist_factor.delete(0, tkinter.END)
+        self.e_acc_factor.delete(0, tkinter.END)
+        self.e_discount.delete(0, tkinter.END)
+        self.e_epsilon.delete(0, tkinter.END)
+        self.e_max_iter.delete(0, tkinter.END)
+
+        self.e_min_vel.insert(tkinter.END, '0')
+        self.e_max_vel.insert(tkinter.END, '20')
+        self.e_num_actions.insert(tkinter.END, '11')
+        self.e_min_pos.insert(tkinter.END, '0')
+        self.e_max_pos.insert(tkinter.END, '50')
+        self.e_num_positions.insert(tkinter.END, '251')
+        self.e_dist_factor.insert(tkinter.END, '1')
+        self.e_acc_factor.insert(tkinter.END, '1')
+        self.e_discount.insert(tkinter.END, '0.99')
+        self.e_epsilon.insert(tkinter.END, '0.01')
+        self.e_max_iter.insert(tkinter.END, '1000')
+
+        self.update_gui('dummy_event')
+
+    def BP_compute(self):
+
+        print('computing...')
+
+        # parameters
+        num_actions = int(self.e_num_actions.get())
+        num_pos_states = int(self.e_num_positions.get())
+        num_states = num_pos_states * num_actions
+        time_step = 1/float(self.control_freq)
+
+        # transition matrix
+        transitions = numpy.zeros((num_actions, num_states, num_states))
+        no_vel_trans = numpy.zeros((num_states, num_states))
+        # setup base zero velocity transition matrix, for i = 0
+        for i in range(0, int(num_states / num_actions)):
+            no_vel_trans[i * num_actions:i * num_actions + num_actions, i * num_actions] = numpy.ones(num_actions)
+        # setup full transition matrix based on position state
+        for i in range(0, num_actions):
+            transitions[i, :, :] = numpy.roll(no_vel_trans, i * num_actions + i, 1)
+
+        # reward matrix
+        reward = numpy.zeros((num_states, num_actions))
+        for i in range(0, num_states):
+            for j in range(0, num_actions):
+                reward[i, j] = -float(self.e_dist_factor.get())*abs(math.floor((num_states - i) / num_actions)) - float(self.e_acc_factor.get())*pow(
+                    (j - (i - math.floor(i / num_actions) * num_actions)), 2)
+
+        # define value iteration
+        vi = mdptoolbox.mdp.ValueIteration(transitions, reward, float(self.e_discount.get()), float(self.e_epsilon.get()), float(self.e_max_iter.get()), 0)
+        vi.run()
+
+        # initialise state
+        state = [100, 0]
+
+        # initialise trajectories for plotting
+        self.pos.clear()
+        self.vel.clear()
+        self.acc.clear()
+        self.time.clear()
+        t = 0
+
+        # populate trajectories
+        while state[0] != 0 or state[1] != 0:
+            cur_vel = vi.policy[int(num_states - state[0] * num_actions - num_actions + state[1])]
+
+            self.pos.append(state[0]) # current state
+            self.vel.append(cur_vel) # current velocity
+            self.acc.append(cur_vel-state[1]) # current accel
+            self.time.append(t)
+            t += time_step
+
+            new_pos = (state[0] - cur_vel) % num_pos_states
+            state = [new_pos, cur_vel]
+
+        print('computed')
+
+        # plot trajectories
+        self.plot()
+
+    def BP_reset(self):
+        self.reset_gui()
+
+    def BP_terminate(self):
+        os._exit(os.EX_OK)
+
+
+
+
+    def tkinter_loop(self):
+
+        self.tk_root = tkinter.Tk()
+
+        row = 0
+        column = 0
+
+        # Velocity Parameters #
+        #---------------------#
+
+        column += 4
+
+        l_vel = tkinter.Label(self.tk_root, text='velocity parameters')
+        l_vel.grid(row=row, column=column)
+
+        row += 1
+        column -= 3
+
+        l_min_vel = tkinter.Label(self.tk_root, text='min vel (cm/s)')
+        l_min_vel.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_min_vel = tkinter.Entry(self.tk_root)
+        self.e_min_vel.grid(row=row,column=column)
+        self.e_min_vel.bind("<FocusOut>", self.update_gui)
+
+        column += 1
+
+        l_max_vel = tkinter.Label(self.tk_root, text='max vel (cm/s)')
+        l_max_vel.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_max_vel = tkinter.Entry(self.tk_root)
+        self.e_max_vel.grid(row=row,column=column)
+        self.e_max_vel.bind("<FocusOut>", self.update_gui)
+
+        column += 1
+
+        l_num_actions = tkinter.Label(self.tk_root, text='num actions')
+        l_num_actions.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_num_actions = tkinter.Entry(self.tk_root)
+        self.e_num_actions.grid(row=row,column=column)
+        self.e_num_actions.bind("<FocusOut>", self.update_gui)
+
+        column += 1
+
+        self.sv_vel_res = tkinter.StringVar()
+        l_vel_res = tkinter.Label(self.tk_root, textvariable=self.sv_vel_res)
+        l_vel_res.grid(row=row, column=column)
+
+        row += 1
+        column -= 6
+
+        # Position Parameters #
+        #---------------------#
+
+        column += 3
+
+        l_vel = tkinter.Label(self.tk_root, text='Position parameters')
+        l_vel.grid(row=row, column=column)
+
+        row += 1
+        column -= 3
+
+        l_min_pos = tkinter.Label(self.tk_root, text='min pos (cm)')
+        l_min_pos.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_min_pos = tkinter.Entry(self.tk_root)
+        self.e_min_pos.grid(row=row,column=column)
+        self.e_min_pos.bind("<FocusOut>", self.update_gui)
+
+        column += 1
+
+        l_max_pos = tkinter.Label(self.tk_root, text='max pos (cm)')
+        l_max_pos.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_max_pos = tkinter.Entry(self.tk_root)
+        self.e_max_pos.grid(row=row,column=column)
+        self.e_max_pos.bind("<FocusOut>", self.update_gui)
+
+        column += 1
+
+        l_num_positions = tkinter.Label(self.tk_root, text='num positions')
+        l_num_positions.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_num_positions = tkinter.Entry(self.tk_root)
+        self.e_num_positions.grid(row=row,column=column)
+        self.e_num_positions.bind("<FocusOut>", self.update_gui)
+
+        column += 1
+
+        self.sv_pos_res = tkinter.StringVar()
+        l_pos_res = tkinter.Label(self.tk_root, textvariable=self.sv_pos_res)
+        l_pos_res.grid(row=row, column=column)
+
+        row += 1
+        column -= 6
+
+        # Reward Parameters #
+        #-------------------#
+
+        column += 3
+
+        l_rew = tkinter.Label(self.tk_root, text='Reward parameters')
+        l_rew.grid(row=row, column=column)
+
+        row += 1
+        column -= 3
+
+        l_dist_factor = tkinter.Label(self.tk_root, text='dist factor')
+        l_dist_factor.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_dist_factor = tkinter.Entry(self.tk_root)
+        self.e_dist_factor.grid(row=row, column=column)
+
+        column += 1
+
+        l_acc_factor = tkinter.Label(self.tk_root, text='acc^2 factor')
+        l_acc_factor.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_acc_factor = tkinter.Entry(self.tk_root)
+        self.e_acc_factor.grid(row=row, column=column)
+
+        column += 3
+
+        # control frequency, to align properly on r.h.s.
+        self.sv_control_freq = tkinter.StringVar()
+        l_control_freq = tkinter.Label(self.tk_root, textvariable=self.sv_control_freq)
+        l_control_freq.grid(row=row, column=column)
+
+        row += 1
+        column -=6
+
+        # Value Iteration Parameters #
+        #----------------------------#
+
+        column += 3
+
+        l_vi = tkinter.Label(self.tk_root, text='Value Iteration parameters')
+        l_vi.grid(row=row, column=column)
+
+        row += 1
+        column -= 3
+
+        l_discount = tkinter.Label(self.tk_root, text='discount')
+        l_discount.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_discount = tkinter.Entry(self.tk_root)
+        self.e_discount.grid(row=row, column=column)
+
+        column += 1
+
+        l_epsilon = tkinter.Label(self.tk_root, text='epsilon')
+        l_epsilon.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_epsilon = tkinter.Entry(self.tk_root)
+        self.e_epsilon.grid(row=row, column=column)
+
+        column += 1
+
+        l_max_iter = tkinter.Label(self.tk_root, text='max iter')
+        l_max_iter.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_max_iter = tkinter.Entry(self.tk_root)
+        self.e_max_iter.grid(row=row, column=column)
+
+        row += 1
+        column -= 5
+
+        # Reset GUI #
+        #-----------#
+
+        self.reset_gui()
+
+        # Sliders #
+        #---------#
+
+        #s2 = tkinter.Scale(self.tk_root, from_=float(self.e_min_pos.get()), to=float(self.e_max_pos.get()), resolution=0.01, tickinterval=6, length=300, width=45,
+                           #orient=tkinter.HORIZONTAL, command=lambda v: setattr(scale, 'value2', v))
+        #s2.set(0)
+        #s2.pack()
+        #s3 = tkinter.Scale(root, from_=-10, to=10, resolution=0.01, tickinterval=4, length=300, width=45,
+                           #orient=tkinter.HORIZONTAL, command=lambda v: setattr(scale, 'value3', v))
+        #s3.set(0)
+        #s3.pack()
+
+        # Buttons #
+        #---------#
+
+        column += 3
+
+        l_buttons = tkinter.Label(self.tk_root, text='Buttons')
+        l_buttons.grid(row=row, column=column)
+
+        row += 1
+        column -= 3
+
+        column += 2
+
+        b_compute = tkinter.Button(self.tk_root, text='Compute', command=self.BP_compute)
+        b_compute.grid(row=row, column=column)
+
+        column += 1
+
+        b_reset = tkinter.Button(self.tk_root, text='Reset', command=self.BP_reset)
+        b_reset.grid(row=row, column=column)
+
+        column += 1
+
+        b_terminate = tkinter.Button(self.tk_root, text='Terminate', command=self.BP_terminate)
+        b_terminate.grid(row=row, column=column)
+
+        # start mainloop #
+        #----------------#
+
+        self.tk_root.mainloop()
+
+def main():
+
+    tk_interface = TK_Interface()
+
+    # start tkinter gui
+    threading.Thread(target=tk_interface.tkinter_loop).start()
+
+if __name__ == "__main__":
+    main()
