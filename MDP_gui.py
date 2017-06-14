@@ -47,7 +47,7 @@ class TK_Interface:
             max_pos = float(self.e_max_pos.get())
             mid_pos = (max_pos + min_pos) / 2
             self.pos_graph.set_ylim(mid_pos - (mid_pos - min_pos) * 1.1, mid_pos + (max_pos - mid_pos) * 1.1)
-            self.pos_line = self.pos_graph.plot(self.time, self.pos, 'b')
+            self.pos_line = self.pos_graph.plot(self.time, self.pos, 'b')[0]
 
             self.vel_graph.cla()
             self.vel_graph.set_xlim(0, max(self.time))
@@ -55,7 +55,7 @@ class TK_Interface:
             max_vel = float(self.e_max_vel.get())
             mid_vel = (max_vel + min_vel) / 2
             self.vel_graph.set_ylim(mid_vel - (mid_vel - min_vel) * 1.1, mid_vel + (max_vel - mid_vel) * 1.1)
-            self.vel_line = self.vel_graph.plot(self.time, self.vel, 'g')
+            self.vel_line = self.vel_graph.plot(self.time, self.vel, 'g')[0]
 
             self.acc_graph.cla()
             self.acc_graph.set_xlim(0, max(self.time))
@@ -63,16 +63,16 @@ class TK_Interface:
             max_acc = max(self.acc)
             mid_acc = (max_acc + min_acc) / 2
             self.acc_graph.set_ylim(mid_acc - (mid_acc - min_acc) * 1.1, mid_acc + (max_acc - mid_acc) * 1.1)
-            self.acc_line = self.acc_graph.plot(self.time, self.acc, 'r')
+            self.acc_line = self.acc_graph.plot(self.time, self.acc, 'r')[0]
 
         else:
 
             self.pos_line.set_xdata(self.time)
             self.pos_line.set_ydata(self.pos)
-            self.pos_line.set_xdata(self.time)
-            self.pos_line.set_ydata(self.vel)
-            self.pos_line.set_xdata(self.time)
-            self.pos_line.set_ydata(self.acc)
+            self.vel_line.set_xdata(self.time)
+            self.vel_line.set_ydata(self.vel)
+            self.acc_line.set_xdata(self.time)
+            self.acc_line.set_ydata(self.acc)
 
         self.fig.canvas.draw()
 
@@ -124,36 +124,42 @@ class TK_Interface:
 
         self.update_gui('dummy_event')
 
-    def compute(self):
+    def compute_vi(self):
 
         print('computing...')
 
         # parameters
-        num_actions = int(self.e_num_actions.get())
-        num_pos_states = int(self.e_num_positions.get())
-        num_states = num_pos_states * num_actions
-        time_step = 1/float(self.control_freq)
+        self.num_actions = int(self.e_num_actions.get())
+        self.num_pos_states = int(self.e_num_positions.get())
+        self.num_states = self.num_pos_states * self.num_actions
 
         # transition matrix
-        transitions = numpy.zeros((num_actions, num_states, num_states))
-        no_vel_trans = numpy.zeros((num_states, num_states))
+        transitions = numpy.zeros((self.num_actions, self.num_states, self.num_states))
+        no_vel_trans = numpy.zeros((self.num_states, self.num_states))
         # setup base zero velocity transition matrix, for i = 0
-        for i in range(0, int(num_states / num_actions)):
-            no_vel_trans[i * num_actions:i * num_actions + num_actions, i * num_actions] = numpy.ones(num_actions)
+        for i in range(0, int(self.num_states / self.num_actions)):
+            no_vel_trans[i * self.num_actions:i * self.num_actions + self.num_actions, i * self.num_actions] = numpy.ones(self.num_actions)
         # setup full transition matrix based on position state
-        for i in range(0, num_actions):
-            transitions[i, :, :] = numpy.roll(no_vel_trans, i * num_actions + i, 1)
+        for i in range(0, self.num_actions):
+            transitions[i, :, :] = numpy.roll(no_vel_trans, i * self.num_actions + i, 1)
 
         # reward matrix
-        reward = numpy.zeros((num_states, num_actions))
-        for i in range(0, num_states):
-            for j in range(0, num_actions):
-                reward[i, j] = -float(self.e_dist_factor.get())*abs(math.floor((num_states - i) / num_actions)) - float(self.e_acc_factor.get())*pow(
-                    (j - (i - math.floor(i / num_actions) * num_actions)), 2)
+        reward = numpy.zeros((self.num_states, self.num_actions))
+        for i in range(0, self.num_states):
+            for j in range(0, self.num_actions):
+                reward[i, j] = -float(self.e_dist_factor.get())*abs(math.floor((self.num_states - i) / self.num_actions)) - float(self.e_acc_factor.get())*pow(
+                    (j - (i - math.floor(i / self.num_actions) * self.num_actions)), 2)
 
         # define value iteration
-        vi = mdptoolbox.mdp.ValueIteration(transitions, reward, float(self.e_discount.get()), float(self.e_epsilon.get()), float(self.e_max_iter.get()), 0)
-        vi.run()
+        self.vi = mdptoolbox.mdp.ValueIteration(transitions, reward, float(self.e_discount.get()), float(self.e_epsilon.get()), float(self.e_max_iter.get()), 0)
+        self.vi.run()
+
+        print('computed vi')
+
+    def compute_traj(self):
+
+        # parameters
+        time_step = 1/float(self.control_freq)
 
         # initialise state
         state = [int(float(self.s_init_pos.get())/self.pos_res), int(float(self.s_init_vel.get())/self.vel_res)]
@@ -166,8 +172,13 @@ class TK_Interface:
         t = 0
 
         # populate trajectories
-        while state[0] != 0 or state[1] != 0:
-            target_vel = vi.policy[int(num_states - state[0] * num_actions - num_actions + state[1])]
+        traj_end = False
+        while traj_end is False:
+
+            if (state[0] == 0 and state[1] == 0):
+                traj_end = True
+
+            target_vel = self.vi.policy[int(self.num_states - state[0] * self.num_actions - self.num_actions + state[1])]
 
             self.pos.append(state[0]) # current state
             self.vel.append(state[1]) # current velocity
@@ -175,7 +186,7 @@ class TK_Interface:
             self.time.append(t)
             t += time_step
 
-            new_pos = (state[0] - target_vel) % num_pos_states
+            new_pos = (state[0] - target_vel) % self.num_pos_states
             state = [new_pos, target_vel]
 
         # rescale trajectories to correct dimensions
@@ -183,7 +194,10 @@ class TK_Interface:
         self.vel = [i*self.vel_res for i in self.vel]
         self.acc = [i*self.vel_res*self.control_freq for i in self.acc]
 
-        print('computed')
+
+    def compute(self):
+        self.compute_vi()
+        self.compute_traj()
 
     # GUI Interaction Functions #
     #---------------------------#
@@ -200,10 +214,12 @@ class TK_Interface:
 
     def S_init_pos(self, v):
         self.init_pos = v
+        self.compute_traj()
         self.update_plot(recomputed_flag=False)
 
     def S_init_vel(self, v):
         self.init_vel = v
+        self.compute_traj()
         self.update_plot(recomputed_flag=False)
 
 
@@ -421,8 +437,7 @@ class TK_Interface:
 
         column += 1
 
-        #self.s_init_pos = tkinter.Scale(self.tk_root, length=300, width=45, orient=tkinter.HORIZONTAL, command=lambda v: self.S_init_pos(v))
-        self.s_init_pos = tkinter.Scale(self.tk_root, length=300, width=45, orient=tkinter.HORIZONTAL)
+        self.s_init_pos = tkinter.Scale(self.tk_root, length=300, width=45, orient=tkinter.HORIZONTAL, command = lambda v: self.S_init_pos(v))
         self.s_init_pos.grid(row=row, column=column)
 
         column += 1
@@ -432,8 +447,7 @@ class TK_Interface:
 
         column += 1
 
-        #self.s_init_vel = tkinter.Scale(self.tk_root, length=300, width=45, orient=tkinter.HORIZONTAL, command=lambda v: self.S_init_vel(v))
-        self.s_init_vel = tkinter.Scale(self.tk_root, length=300, width=45, orient=tkinter.HORIZONTAL)
+        self.s_init_vel = tkinter.Scale(self.tk_root, length=300, width=45, orient=tkinter.HORIZONTAL, command=lambda v: self.S_init_vel(v))
         self.s_init_vel.grid(row=row, column=column)
 
         row += 1
