@@ -187,8 +187,8 @@ class TK_Interface:
         reward = numpy.zeros((self.num_states, self.num_actions))
         for i in range(0, self.num_states):
             for j in range(0, self.num_actions):
-                reward[i, j] = -float(self.e_dist_factor.get())*abs(math.floor((self.num_states - i) / self.num_actions)) - float(self.e_acc_factor.get())*pow(
-                    (j - (i - math.floor(i / self.num_actions) * self.num_actions)), 2)
+                reward[i, j] = -float(self.e_dist_factor.get())*abs(math.floor((self.num_states - i) / self.num_actions))*self.pos_res - float(self.e_acc_factor.get())*pow(
+                    (j*self.vel_res - (i - math.floor(i / self.num_actions) * self.num_actions)*self.vel_res), 2)
 
         # define value iteration
         self.vi = mdptoolbox.mdp.ValueIteration(transitions, reward, float(self.e_discount.get()), float(self.e_epsilon.get()), float(self.e_max_iter.get()), 0)
