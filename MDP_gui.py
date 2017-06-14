@@ -1,4 +1,6 @@
 import os
+import operator
+import functools
 import mdptoolbox
 import numpy
 import math
@@ -14,43 +16,67 @@ class TK_Interface:
         self.acc = []
         self.time = []
 
-    def plot(self):
+    def init_plot(self):
 
         plt.close()
 
-        fig = plt.figure()
+        plt.ion()
 
-        pos_graph = fig.add_subplot(3, 1, 1)
-        pos_graph.set_xlim(0, max(self.time))
-        min_pos = min(self.pos)
-        max_pos = max(self.pos)
-        mid_pos = (max_pos+min_pos)/2
-        pos_graph.set_ylim(mid_pos-(mid_pos-min_pos)*1.1, mid_pos+(max_pos-mid_pos)*1.1)
-        pos_graph.plot(self.time, self.pos, 'b')
-        pos_graph.set_title('Displacement (cm)')
+        self.fig = plt.figure()
 
-        vel_graph = fig.add_subplot(3, 1, 2)
-        vel_graph.set_xlim(0, max(self.time))
-        min_vel = min(self.vel)
-        max_vel = max(self.vel)
-        mid_vel = (max_vel+min_vel)/2
-        vel_graph.set_ylim(mid_vel - (mid_vel - min_vel) * 1.1, mid_vel + (max_vel - mid_vel) * 1.1)
-        vel_graph.plot(self.time, self.vel, 'g')
-        vel_graph.set_title('Velocity (cm/s)')
+        self.pos_graph = self.fig.add_subplot(3, 1, 1)
+        self.pos_graph.set_title('Displacement (cm)')
 
-        acc_graph = fig.add_subplot(3, 1, 3)
-        acc_graph.set_xlim(0, max(self.time))
-        min_acc = min(self.acc)
-        max_acc = max(self.acc)
-        mid_acc = (max_acc+min_acc)/2
-        acc_graph.set_ylim(mid_acc - (mid_acc - min_acc) * 1.1, mid_acc + (max_acc - mid_acc) * 1.1)
-        acc_graph.plot(self.time, self.acc, 'r')
-        acc_graph.set_xlabel('Time (s)')
-        acc_graph.set_title('Acceleration (cm/s^2)')
+        self.vel_graph = self.fig.add_subplot(3, 1, 2)
+        self.vel_graph.set_title('Velocity (cm/s)')
+
+        self.acc_graph = self.fig.add_subplot(3, 1, 3)
+        self.acc_graph.set_xlabel('Time (s)')
+        self.acc_graph.set_title('Acceleration (cm/s^2)')
 
         plt.tight_layout()  # turn on tight-layout
 
-        plt.show()
+
+    def update_plot(self, recomputed_flag):
+
+        if recomputed_flag:
+
+            self.pos_graph.cla()
+            self.pos_graph.set_xlim(0, max(self.time))
+            min_pos = float(self.e_min_pos.get())
+            max_pos = float(self.e_max_pos.get())
+            mid_pos = (max_pos + min_pos) / 2
+            self.pos_graph.set_ylim(mid_pos - (mid_pos - min_pos) * 1.1, mid_pos + (max_pos - mid_pos) * 1.1)
+            self.pos_line = self.pos_graph.plot(self.time, self.pos, 'b')
+
+            self.vel_graph.cla()
+            self.vel_graph.set_xlim(0, max(self.time))
+            min_vel = float(self.e_min_vel.get())
+            max_vel = float(self.e_max_vel.get())
+            mid_vel = (max_vel + min_vel) / 2
+            self.vel_graph.set_ylim(mid_vel - (mid_vel - min_vel) * 1.1, mid_vel + (max_vel - mid_vel) * 1.1)
+            self.vel_line = self.vel_graph.plot(self.time, self.vel, 'g')
+
+            self.acc_graph.cla()
+            self.acc_graph.set_xlim(0, max(self.time))
+            min_acc = min(self.acc)
+            max_acc = max(self.acc)
+            mid_acc = (max_acc + min_acc) / 2
+            self.acc_graph.set_ylim(mid_acc - (mid_acc - min_acc) * 1.1, mid_acc + (max_acc - mid_acc) * 1.1)
+            self.acc_line = self.acc_graph.plot(self.time, self.acc, 'r')
+
+        else:
+
+            self.pos_line.set_xdata(self.time)
+            self.pos_line.set_ydata(self.pos)
+            self.pos_line.set_xdata(self.time)
+            self.pos_line.set_ydata(self.vel)
+            self.pos_line.set_xdata(self.time)
+            self.pos_line.set_ydata(self.acc)
+
+        self.fig.canvas.draw()
+
+
 
     def update_gui(self, event):
 
@@ -66,7 +92,7 @@ class TK_Interface:
         self.s_init_pos.config(from_=float(self.e_min_pos.get()), to=float(self.e_max_pos.get()), resolution=self.pos_res, tickinterval=(float(self.e_max_pos.get())-float(self.e_min_pos.get()))/5)
         self.s_init_pos.set(float(self.e_max_pos.get()))
         self.s_init_vel.config(from_=float(self.e_min_vel.get()), to=float(self.e_max_vel.get()), resolution=self.vel_res, tickinterval=(float(self.e_max_vel.get())-float(self.e_min_vel.get()))/5)
-        self.s_init_vel.set(float(self.e_max_vel.get()))
+        self.s_init_vel.set(float(self.e_min_vel.get()))
 
         self.tk_root.update_idletasks()
 
@@ -130,7 +156,7 @@ class TK_Interface:
         vi.run()
 
         # initialise state
-        state = [100, 0]
+        state = [int(float(self.s_init_pos.get())/self.pos_res), int(float(self.s_init_vel.get())/self.vel_res)]
 
         # initialise trajectories for plotting
         self.pos.clear()
@@ -141,33 +167,45 @@ class TK_Interface:
 
         # populate trajectories
         while state[0] != 0 or state[1] != 0:
-            cur_vel = vi.policy[int(num_states - state[0] * num_actions - num_actions + state[1])]
+            target_vel = vi.policy[int(num_states - state[0] * num_actions - num_actions + state[1])]
 
             self.pos.append(state[0]) # current state
-            self.vel.append(cur_vel) # current velocity
-            self.acc.append(cur_vel-state[1]) # current accel
+            self.vel.append(state[1]) # current velocity
+            self.acc.append(target_vel-state[1]) # current accel
             self.time.append(t)
             t += time_step
 
-            new_pos = (state[0] - cur_vel) % num_pos_states
-            state = [new_pos, cur_vel]
+            new_pos = (state[0] - target_vel) % num_pos_states
+            state = [new_pos, target_vel]
+
+        # rescale trajectories to correct dimensions
+        self.pos = [i*self.pos_res for i in self.pos]
+        self.vel = [i*self.vel_res for i in self.vel]
+        self.acc = [i*self.vel_res*self.control_freq for i in self.acc]
 
         print('computed')
 
-        # plot trajectories
-        self.plot()
-
-    # Button Press Functions #
-    #------------------------#
+    # GUI Interaction Functions #
+    #---------------------------#
 
     def BP_compute(self):
         self.compute()
+        self.update_plot(recomputed_flag=True)
 
     def BP_reset(self):
         self.reset_gui()
 
     def BP_terminate(self):
         os._exit(os.EX_OK)
+
+    def S_init_pos(self, v):
+        self.init_pos = v
+        self.update_plot(recomputed_flag=False)
+
+    def S_init_vel(self, v):
+        self.init_vel = v
+        self.update_plot(recomputed_flag=False)
+
 
     # Main GUI Loop Funcion #
     #-----------------------#
@@ -178,6 +216,11 @@ class TK_Interface:
 
         row = 0
         column = 0
+
+        # Initialise Plot #
+        #-----------------#
+
+        self.init_plot()
 
         # Velocity Parameters #
         #---------------------#
@@ -378,6 +421,7 @@ class TK_Interface:
 
         column += 1
 
+        #self.s_init_pos = tkinter.Scale(self.tk_root, length=300, width=45, orient=tkinter.HORIZONTAL, command=lambda v: self.S_init_pos(v))
         self.s_init_pos = tkinter.Scale(self.tk_root, length=300, width=45, orient=tkinter.HORIZONTAL)
         self.s_init_pos.grid(row=row, column=column)
 
@@ -388,6 +432,7 @@ class TK_Interface:
 
         column += 1
 
+        #self.s_init_vel = tkinter.Scale(self.tk_root, length=300, width=45, orient=tkinter.HORIZONTAL, command=lambda v: self.S_init_vel(v))
         self.s_init_vel = tkinter.Scale(self.tk_root, length=300, width=45, orient=tkinter.HORIZONTAL)
         self.s_init_vel.grid(row=row, column=column)
 
@@ -425,6 +470,7 @@ class TK_Interface:
 
         self.reset_gui()
         self.compute()
+        self.update_plot(recomputed_flag=True)
 
         # start mainloop #
         #----------------#
