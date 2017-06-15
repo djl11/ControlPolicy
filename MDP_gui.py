@@ -20,6 +20,9 @@ class TK_Interface:
         self.acc_raw = []
         self.time = []
 
+    def gaussian(self, x, mu=0, sig=1):
+        return numpy.exp(-numpy.power(x - mu, 2.) / (2 * numpy.power(sig, 2.)))
+
     def init_plots(self):
 
         plt.close()
@@ -89,12 +92,12 @@ class TK_Interface:
 
             self.policy_graph.cla()
             self.policy_graph.set_xlabel('Velocity (cm/s)')
-            self.policy_graph.set_title('Displacement (cm)')
+            self.policy_graph.set_ylabel('Displacement (cm)')
             policy_map = numpy.zeros((self.num_pos_states, self.num_actions))
             for i in range(self.num_pos_states):
                 for j in range(self.num_actions):
                     policy_map[i,j] = self.vi.policy[int(self.num_states - i * self.num_actions - self.num_actions + j)]
-            self.policy_graph.imshow(policy_map, aspect='auto', extent=[float(self.e_min_vel.get()),float(self.e_max_vel.get()),float(self.e_max_pos.get()),float(self.e_min_pos.get())])
+            self.policy_graph.imshow(policy_map, aspect='auto', interpolation='none', extent=[float(self.e_min_vel.get()),float(self.e_max_vel.get()),float(self.e_max_pos.get()),float(self.e_min_pos.get())])
             self.policy_graph.autoscale(False)
             self.policy_line = self.policy_graph.plot(self.vel_raw, self.pos_raw, color='k', linestyle='-', linewidth=3, marker='o', markeredgecolor='w')[0]
 
@@ -146,11 +149,13 @@ class TK_Interface:
         self.e_min_pos.delete(0, tkinter.END)
         self.e_max_pos.delete(0, tkinter.END)
         self.e_num_positions.delete(0, tkinter.END)
-        self.e_dist_factor.delete(0, tkinter.END)
-        self.e_acc_factor.delete(0, tkinter.END)
         self.e_discount.delete(0, tkinter.END)
         self.e_epsilon.delete(0, tkinter.END)
         self.e_max_iter.delete(0, tkinter.END)
+        self.e_dist_factor.delete(0, tkinter.END)
+        self.e_acc_factor.delete(0, tkinter.END)
+        self.e_gauss_bins.delete(0, tkinter.END)
+
 
         self.e_min_vel.insert(tkinter.END, '0')
         self.e_max_vel.insert(tkinter.END, '20')
@@ -158,11 +163,13 @@ class TK_Interface:
         self.e_min_pos.insert(tkinter.END, '0')
         self.e_max_pos.insert(tkinter.END, '50')
         self.e_num_positions.insert(tkinter.END, '126')
-        self.e_dist_factor.insert(tkinter.END, '1')
-        self.e_acc_factor.insert(tkinter.END, '1')
         self.e_discount.insert(tkinter.END, '0.99')
         self.e_epsilon.insert(tkinter.END, '0.01')
         self.e_max_iter.insert(tkinter.END, '1000')
+        self.e_dist_factor.insert(tkinter.END, '1')
+        self.e_acc_factor.insert(tkinter.END, '1')
+        self.e_gauss_bins.insert(tkinter.END, '1')
+
 
         self.update_gui('dummy_event')
 
@@ -171,17 +178,27 @@ class TK_Interface:
         # parameters
         self.num_actions = int(self.e_num_actions.get())
         self.num_pos_states = int(self.e_num_positions.get())
+        self.num_gauss_bins = int(self.e_gauss_bins.get())
         self.num_states = self.num_pos_states * self.num_actions
+
+        # crude gaussian histogram
+        self.crude_gauss_hist = self.gaussian(numpy.linspace(-3,3,2*self.num_gauss_bins+1))
+        self.crude_gauss_hist = self.crude_gauss_hist[1::2]
+        self.crude_gauss_hist = self.crude_gauss_hist/numpy.sum(self.crude_gauss_hist)
 
         # transition matrix
         transitions = numpy.zeros((self.num_actions, self.num_states, self.num_states))
         no_vel_trans = numpy.zeros((self.num_states, self.num_states))
         # setup base zero velocity transition matrix, for i = 0
         for i in range(0, int(self.num_states / self.num_actions)):
-            no_vel_trans[i * self.num_actions:i * self.num_actions + self.num_actions, i * self.num_actions] = numpy.ones(self.num_actions)
+            for j in range(0,self.num_gauss_bins):
+                if (i * self.num_actions + j -int(self.num_gauss_bins/2) >= 0 and i * self.num_actions + j -int(self.num_gauss_bins/2) < self.num_states):
+                    no_vel_trans[i * self.num_actions:i * self.num_actions + self.num_actions, i * self.num_actions + j -int(self.num_gauss_bins/2)] = numpy.full(self.num_actions, self.crude_gauss_hist[j])
         # setup full transition matrix based on position state
         for i in range(0, self.num_actions):
             transitions[i, :, :] = numpy.roll(no_vel_trans, i * self.num_actions + i, 1)
+            #transitions[i,:,0:i * self.num_actions] = 0
+            #transitions[i,:,self.num_states-i*self.num_actions:self.num_states] = no_vel_trans[:,self.num_states-i*self.num_actions:self.num_states]
 
         # reward matrix
         reward = numpy.zeros((self.num_states, self.num_actions))
@@ -467,6 +484,16 @@ class TK_Interface:
 
         self.e_acc_factor = tkinter.Entry(f_tb)
         self.e_acc_factor.grid(row=row, column=column)
+
+        column += 1
+
+        l_gauss_bins = tkinter.Label(f_tb, text='gauss bins')
+        l_gauss_bins.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_gauss_bins = tkinter.Entry(f_tb)
+        self.e_gauss_bins.grid(row=row, column=column)
 
         row += 1
         column -=3
