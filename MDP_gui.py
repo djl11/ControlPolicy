@@ -9,6 +9,7 @@ import tkinter
 import threading
 import matplotlib.backends.backend_tkagg as tkagg
 import matplotlib.pyplot as plt
+from colour import Color
 
 class TK_Interface:
 
@@ -48,12 +49,9 @@ class TK_Interface:
 
             # trajectory plots
 
-            x_min = 0
-            x_max = max(self.time)
-
             self.pos_graph.cla()
             self.pos_graph.set_title('Displacement (cm)')
-            self.pos_graph.set_xlim(x_min, x_max)
+            self.pos_graph.set_xlim(0, self.t_touch)
             min_pos = float(self.e_min_pos.get())
             max_pos = float(self.e_max_pos.get())
             mid_pos = (max_pos + min_pos) / 2
@@ -65,7 +63,7 @@ class TK_Interface:
 
             self.vel_graph.cla()
             self.vel_graph.set_title('Velocity (cm/s)')
-            self.vel_graph.set_xlim(x_min, x_max)
+            self.vel_graph.set_xlim(0, self.t_touch)
             min_vel = float(self.e_min_vel.get())
             max_vel = float(self.e_max_vel.get())
             mid_vel = (max_vel + min_vel) / 2
@@ -78,14 +76,14 @@ class TK_Interface:
             self.acc_graph.cla()
             self.acc_graph.set_xlabel('Time (s)')
             self.acc_graph.set_title('Acceleration (cm/s^2)')
-            self.acc_graph.set_xlim(x_min, x_max)
+            self.acc_graph.set_xlim(0, self.t_touch)
             min_acc = min(self.acc)
             max_acc = max(self.acc)
             mid_acc = (max_acc + min_acc) / 2
             y_min = mid_acc - (mid_acc - min_acc) * 1.1
             y_max = mid_acc + (max_acc - mid_acc) * 1.1
             self.acc_graph.set_ylim(y_min, y_max)
-            self.acc_graph.plot(numpy.array([x_min, x_max]), numpy.array([0, 0]), 'k') # x axis
+            self.acc_graph.plot(numpy.array([0, self.t_touch]), numpy.array([0, 0]), 'k') # x axis
             self.acc_line = self.acc_graph.plot(self.time, self.acc, 'r', marker='o', markeredgecolor='w')[0]
             self.acc_t_line = self.acc_graph.plot(numpy.array([self.t_touch, self.t_touch]), numpy.array([y_min, y_max]), 'r--')[0]
 
@@ -100,19 +98,30 @@ class TK_Interface:
                     policy_map[i,j] = self.vi.policy[int(self.num_states - i * self.num_actions - self.num_actions + j)]
             self.policy_graph.imshow(policy_map, aspect='auto', interpolation='none', extent=[float(self.e_min_vel.get()),float(self.e_max_vel.get()),float(self.e_max_pos.get()),float(self.e_min_pos.get())])
             self.policy_graph.autoscale(False)
-            self.policy_line = self.policy_graph.plot(self.vel_raw, self.pos_raw, color='k', linestyle='-', linewidth=3, marker='o', markeredgecolor='w')[0]
+            self.policy_line = self.policy_graph.plot(self.vel, self.pos, color='k', linestyle='-', linewidth=3, marker='o', markeredgecolor='w')[0]
+
+            self.plotted_t_touch = self.t_touch
 
 
         else:
 
+            if (self.init_pos == float(self.e_max_pos.get())):
+                    # max pos required in condition to prevent long trajectories from small starting positions
+                    self.pos_graph.set_xlim(0, self.t_touch)
+                    self.vel_graph.set_xlim(0, self.t_touch)
+                    self.acc_graph.set_xlim(0, self.t_touch)
+                    self.plotted_t_touch = self.t_touch
+
             # trajectories
-            x_max = max(self.time)
+
             self.pos_line.set_xdata(self.time)
             self.pos_line.set_ydata(self.pos)
             self.pos_t_line.set_xdata(numpy.array([self.t_touch, self.t_touch]))
+
             self.vel_line.set_xdata(self.time)
             self.vel_line.set_ydata(self.vel)
             self.vel_t_line.set_xdata(numpy.array([self.t_touch, self.t_touch]))
+
             self.acc_line.set_xdata(self.time)
             self.acc_line.set_ydata(self.acc)
             self.acc_t_line.set_xdata(numpy.array([self.t_touch, self.t_touch]))
@@ -173,7 +182,7 @@ class TK_Interface:
         self.e_vel_factor.insert(tkinter.END, '1')
         self.e_vel_den_ratio.insert(tkinter.END, '0.05')
         self.e_acc_factor.insert(tkinter.END, '1')
-        self.e_motion_bins.insert(tkinter.END, '1')
+        self.e_motion_bins.insert(tkinter.END, '3')
 
 
         self.update_gui('dummy_event')
@@ -219,7 +228,6 @@ class TK_Interface:
 
 
             #re-normalise border at bottom
-            print('before renorm bottom')
             for j in range(0,self.bin_centre_idx + i):
                 # bottom-right (final state border)
                 start_j = self.num_states+(j-self.bin_centre_idx-i)*self.num_actions
@@ -228,8 +236,6 @@ class TK_Interface:
                                                                 if j<float(self.e_motion_bins.get()) else 1
                 # bottom-right (final state-rolled over)
                 transitions[i,start_j:self.num_states, i+j*self.num_actions] = 0
-
-            print('dummy')
 
         # reward matrix
         reward = numpy.zeros((self.num_states, self.num_actions))
@@ -252,8 +258,6 @@ class TK_Interface:
         self.vi.run()
 
     def compute_traj(self):
-
-        print('computing traj')
 
         # parameters
         time_step = 1/float(self.control_freq)
@@ -279,7 +283,6 @@ class TK_Interface:
                 self.t_touch = t
                 at_target = True
                 traj_end = True
-                print('at target')
 
             #if (prev_state == state):
                 #traj_end = True
@@ -300,8 +303,6 @@ class TK_Interface:
                 new_pos = float(self.e_max_pos.get())/self.pos_res
             state = [new_pos, target_vel]
 
-            print(state[0])
-
         # rescale trajectories to correct dimensions
         self.pos = [i*self.pos_res for i in self.pos_raw]
         self.vel = [i*self.vel_res for i in self.vel_raw]
@@ -319,6 +320,10 @@ class TK_Interface:
         self.compute()
         self.update_plots(recomputed_flag=True)
 
+    def BP_resample(self):
+        self.compute_traj()
+        self.update_plots(recomputed_flag=False)
+
     def BP_reset(self):
         self.reset_gui()
 
@@ -326,12 +331,12 @@ class TK_Interface:
         os._exit(os.EX_OK)
 
     def S_init_pos(self, v):
-        self.init_pos = v
+        self.init_pos = float(v)
         self.compute_traj()
         self.update_plots(recomputed_flag=False)
 
     def S_init_vel(self, v):
-        self.init_vel = v
+        self.init_vel = float(v)
         self.compute_traj()
         self.update_plots(recomputed_flag=False)
 
@@ -639,6 +644,11 @@ class TK_Interface:
 
         b_compute = tkinter.Button(f_b, text='Compute', command=self.BP_compute)
         b_compute.grid(row=row, column=column)
+
+        column += 1
+
+        b_resample = tkinter.Button(f_b, text='Resample', command=self.BP_resample)
+        b_resample.grid(row=row, column=column)
 
         column += 1
 
