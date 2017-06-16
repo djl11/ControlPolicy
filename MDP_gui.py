@@ -195,14 +195,41 @@ class TK_Interface:
         transitions = numpy.zeros((self.num_actions, self.num_states, self.num_states))
         no_vel_trans = numpy.zeros((self.num_states, self.num_states))
         # setup base zero velocity transition matrix, for i = 0
-        for i in range(0, int(self.num_states / self.num_actions)):
-            for j in range(0,self.num_motion_bins):
-                if (i * self.num_actions + j -int(self.num_motion_bins/2) >= 0 and i * self.num_actions + j -int(self.num_motion_bins/2) < self.num_states):
-                    no_vel_trans[i * self.num_actions:i * self.num_actions + self.num_actions, i * self.num_actions + j -int(self.num_motion_bins/2)] = numpy.full(self.num_actions, self.crude_gauss_hist[j])
+        self.bin_centre_idx = int(self.num_motion_bins/2)
+        for i in range(0, int(self.num_states / self.num_actions)): # iterate over pos states
+            for j in range(0,self.num_motion_bins): # iterate over bins
+                bin_range = (j -self.bin_centre_idx)*self.num_actions
+                horizontal_coord = i * self.num_actions + bin_range
+                no_vel_trans[i * self.num_actions:i * self.num_actions + self.num_actions, horizontal_coord % self.num_states] = numpy.full(self.num_actions, self.crude_gauss_hist[j])
+
         # setup full transition matrix based on position state
         for i in range(0, self.num_actions):
-            transitions[i, 0:self.num_states-i*self.num_actions, :] = numpy.roll(no_vel_trans[0:self.num_states-i*self.num_actions,:], i * self.num_actions + i, 1)
-            transitions[i,self.num_states-i*self.num_actions:self.num_states,self.num_states-self.num_actions+i] = 1
+
+            # roll entire state
+            transitions[i, :, :] = numpy.roll(no_vel_trans[:,:], i * self.num_actions + i, 1)
+
+            #re-normalise border at top
+            if (i < self.bin_centre_idx):  # if there are border terms
+                for j in range(0,self.bin_centre_idx - i): # iterate over groups
+                    # top-left (starting state border)
+                    transitions[i,j*self.num_actions:(j+1)*self.num_actions, i] += numpy.sum(self.crude_gauss_hist[0:self.bin_centre_idx-j-i])
+                    # top-right (initial rolled over)
+                    start = self.num_states - (self.bin_centre_idx-i) * self.num_actions + i
+                    transitions[i, 0:(j + 1) * self.num_actions, start + j*self.num_actions] = 0
+
+
+            #re-normalise border at bottom
+            print('before renorm bottom')
+            for j in range(0,self.bin_centre_idx + i):
+                # bottom-right (final state border)
+                start_j = self.num_states+(j-self.bin_centre_idx-i)*self.num_actions
+                end_j = self.num_states+(j+1-self.bin_centre_idx-i)*self.num_actions
+                transitions[i,start_j:end_j,self.num_states-self.num_actions+i] += numpy.sum(self.crude_gauss_hist[0:j+1])\
+                                                                if j<float(self.e_motion_bins.get()) else 1
+                # bottom-right (final state-rolled over)
+                transitions[i,start_j:self.num_states, i+j*self.num_actions] = 0
+
+            print('dummy')
 
         # reward matrix
         reward = numpy.zeros((self.num_states, self.num_actions))
@@ -233,6 +260,7 @@ class TK_Interface:
 
         # initialise state
         state = [int(float(self.s_init_pos.get())/self.pos_res), int(float(self.s_init_vel.get())/self.vel_res)]
+        prev_state = [0,0]
 
         # initialise trajectories for plotting
         self.pos_raw.clear()
@@ -245,18 +273,18 @@ class TK_Interface:
         # populate trajectories
         at_target = False
         traj_end = False
-        while at_target is False:
+        while traj_end is False:
 
             if (state[0] == 0 and at_target == False):
                 self.t_touch = t
                 at_target = True
+                traj_end = True
                 print('at target')
 
-            target_vel = self.vi.policy[int(self.num_states - state[0] * self.num_actions - self.num_actions + state[1])]
+            #if (prev_state == state):
+                #traj_end = True
 
-            if (at_target == True and state[1] == target_vel):
-                traj_end = True
-                print(str(state[1]) + ' == ' + str(target_vel))
+            target_vel = self.vi.policy[int(self.num_states - state[0] * self.num_actions - self.num_actions + state[1])]
 
             self.pos_raw.append(state[0]) # current state
             self.vel_raw.append(state[1]) # current velocity
@@ -264,7 +292,12 @@ class TK_Interface:
             self.time.append(t)
             t += time_step
 
-            new_pos = (state[0] - target_vel) if (state[0] - target_vel) > 0 else 0
+            #prev_state = state
+            new_pos = state[0] - target_vel + numpy.random.choice(numpy.linspace(-self.bin_centre_idx,self.bin_centre_idx,self.num_motion_bins),1,p=self.crude_gauss_hist)
+            if new_pos < float(self.e_min_pos.get())/self.pos_res:
+                new_pos = float(self.e_min_pos.get())/self.pos_res
+            elif new_pos > float(self.e_max_pos.get())/self.pos_res:
+                new_pos = float(self.e_max_pos.get())/self.pos_res
             state = [new_pos, target_vel]
 
             print(state[0])
