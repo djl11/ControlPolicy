@@ -16,12 +16,6 @@ class TK_Interface:
     # Core Functions #
     #----------------#
 
-    def __init__(self):
-        self.pos_raw = []
-        self.vel_raw = []
-        self.acc_raw = []
-        self.time = []
-
     def gaussian(self, x, mu=0, sig=1):
         return numpy.exp(-numpy.power(x - mu, 2.) / (2 * numpy.power(sig, 2.)))
 
@@ -43,92 +37,113 @@ class TK_Interface:
 
         #plt.ion()
 
+        self.plot_samples = 0
+
     def update_plots(self, recomputed_flag):
 
-        if recomputed_flag:
+        if recomputed_flag or self.plot_samples != int(self.e_num_samples.get()):
 
-            # trajectory plots
+            self.plot_samples = int(self.e_num_samples.get())
 
+            # position graph
             self.pos_graph.cla()
             self.pos_graph.set_title('Displacement (cm)')
-            self.pos_graph.set_xlim(0, self.t_touch)
+            self.pos_graph.set_xlim(0, max(self.t_touch))
             min_pos = float(self.e_min_pos.get())
             max_pos = float(self.e_max_pos.get())
             mid_pos = (max_pos + min_pos) / 2
             y_min = mid_pos - (mid_pos - min_pos)
             y_max = mid_pos + (max_pos - mid_pos) * 1.1
             self.pos_graph.set_ylim(y_min, y_max)
-            self.pos_line = self.pos_graph.plot(self.time, self.pos, 'b', marker='o', markeredgecolor='w')[0]
-            self.pos_t_line = self.pos_graph.plot(numpy.array([self.t_touch, self.t_touch]), numpy.array([y_min, y_max]), 'r--')[0]
 
+            # velocity graph
             self.vel_graph.cla()
             self.vel_graph.set_title('Velocity (cm/s)')
-            self.vel_graph.set_xlim(0, self.t_touch)
+            self.vel_graph.set_xlim(0, max(self.t_touch))
             min_vel = float(self.e_min_vel.get())
             max_vel = float(self.e_max_vel.get())
             mid_vel = (max_vel + min_vel) / 2
             y_min = mid_vel - (mid_vel - min_vel)
             y_max = mid_vel + (max_vel - mid_vel) * 1.1
             self.vel_graph.set_ylim(y_min, y_max)
-            self.vel_line = self.vel_graph.plot(self.time, self.vel, 'g', marker='o', markeredgecolor='w')[0]
-            self.vel_t_line = self.vel_graph.plot(numpy.array([self.t_touch, self.t_touch]), numpy.array([y_min, y_max]), 'r--')[0]
 
+            # acceleration graph
             self.acc_graph.cla()
             self.acc_graph.set_xlabel('Time (s)')
             self.acc_graph.set_title('Acceleration (cm/s^2)')
-            self.acc_graph.set_xlim(0, self.t_touch)
-            min_acc = min(self.acc)
-            max_acc = max(self.acc)
+            self.acc_graph.set_xlim(0, max(self.t_touch))
+            min_acc = min([min(sublist) for sublist in self.acc])
+            max_acc = max([max(sublist) for sublist in self.acc])
             mid_acc = (max_acc + min_acc) / 2
             y_min = mid_acc - (mid_acc - min_acc) * 1.1
             y_max = mid_acc + (max_acc - mid_acc) * 1.1
             self.acc_graph.set_ylim(y_min, y_max)
-            self.acc_graph.plot(numpy.array([0, self.t_touch]), numpy.array([0, 0]), 'k') # x axis
-            self.acc_line = self.acc_graph.plot(self.time, self.acc, 'r', marker='o', markeredgecolor='w')[0]
-            self.acc_t_line = self.acc_graph.plot(numpy.array([self.t_touch, self.t_touch]), numpy.array([y_min, y_max]), 'r--')[0]
+            self.acc_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')  # x axis
 
             # policy map
-
             self.policy_graph.cla()
             self.policy_graph.set_xlabel('Velocity (cm/s)')
             self.policy_graph.set_ylabel('Displacement (cm)')
             policy_map = numpy.zeros((self.num_pos_states, self.num_actions))
-            for i in range(self.num_pos_states):
-                for j in range(self.num_actions):
-                    policy_map[i,j] = self.vi.policy[int(self.num_states - i * self.num_actions - self.num_actions + j)]
-            self.policy_graph.imshow(policy_map, aspect='auto', interpolation='none', extent=[float(self.e_min_vel.get()),float(self.e_max_vel.get()),float(self.e_max_pos.get()),float(self.e_min_pos.get())])
+            for j in range(self.num_pos_states):
+                for k in range(self.num_actions):
+                    policy_map[j, k] = self.vi.policy[
+                        int(self.num_states - j * self.num_actions - self.num_actions + k)]
+            self.policy_graph.imshow(policy_map, aspect='auto', interpolation='none',
+                                     extent=[float(self.e_min_vel.get()), float(self.e_max_vel.get()),
+                                             float(self.e_max_pos.get()), float(self.e_min_pos.get())])
             self.policy_graph.autoscale(False)
-            self.policy_line = self.policy_graph.plot(self.vel, self.pos, color='k', linestyle='-', linewidth=3, marker='o', markeredgecolor='w')[0]
 
-            self.plotted_t_touch = self.t_touch
 
+            # init traj arrays
+            self.pos_lines = []
+            self.pos_t_lines = []
+            self.vel_lines = []
+            self.vel_t_lines = []
+            self.acc_lines = []
+            self.acc_t_lines = []
+            self.policy_lines = []
+
+            for i in range(0,int(self.e_num_samples.get())):
+
+                self.pos_lines.append(self.pos_graph.plot(self.time[i], self.pos[i], 'b', marker='o', markeredgecolor='w')[0])
+                self.pos_t_lines.append(self.pos_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([y_min, y_max]), 'r--')[0])
+
+                self.vel_lines.append(self.vel_graph.plot(self.time[i], self.vel[i], 'g', marker='o', markeredgecolor='w')[0])
+                self.vel_t_lines.append(self.vel_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([y_min, y_max]), 'r--')[0])
+
+                self.acc_lines.append(self.acc_graph.plot(self.time[i], self.acc[i], 'r', marker='o', markeredgecolor='w')[0])
+                self.acc_t_lines.append(self.acc_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([y_min, y_max]), 'r--')[0])
+
+                self.policy_lines.append(self.policy_graph.plot(self.vel[i], self.pos[i], color='k', linestyle='-', linewidth=3, marker='o', markeredgecolor='w')[0])
 
         else:
 
             if (self.init_pos == float(self.e_max_pos.get())):
                     # max pos required in condition to prevent long trajectories from small starting positions
-                    self.pos_graph.set_xlim(0, self.t_touch)
-                    self.vel_graph.set_xlim(0, self.t_touch)
-                    self.acc_graph.set_xlim(0, self.t_touch)
-                    self.plotted_t_touch = self.t_touch
+                    self.pos_graph.set_xlim(0, max(self.t_touch))
+                    self.vel_graph.set_xlim(0, max(self.t_touch))
+                    self.acc_graph.set_xlim(0, max(self.t_touch))
 
             # trajectories
 
-            self.pos_line.set_xdata(self.time)
-            self.pos_line.set_ydata(self.pos)
-            self.pos_t_line.set_xdata(numpy.array([self.t_touch, self.t_touch]))
+            for i in range(0,int(self.e_num_samples.get())):
 
-            self.vel_line.set_xdata(self.time)
-            self.vel_line.set_ydata(self.vel)
-            self.vel_t_line.set_xdata(numpy.array([self.t_touch, self.t_touch]))
+                self.pos_lines[i].set_xdata(self.time[i])
+                self.pos_lines[i].set_ydata(self.pos[i])
+                self.pos_t_lines[i].set_xdata(numpy.array([self.t_touch[i], self.t_touch[i]]))
 
-            self.acc_line.set_xdata(self.time)
-            self.acc_line.set_ydata(self.acc)
-            self.acc_t_line.set_xdata(numpy.array([self.t_touch, self.t_touch]))
+                self.vel_lines[i].set_xdata(self.time[i])
+                self.vel_lines[i].set_ydata(self.vel[i])
+                self.vel_t_lines[i].set_xdata(numpy.array([self.t_touch[i], self.t_touch[i]]))
 
-            # policy map
-            self.policy_line.set_xdata(self.vel)
-            self.policy_line.set_ydata(self.pos)
+                self.acc_lines[i].set_xdata(self.time[i])
+                self.acc_lines[i].set_ydata(self.acc[i])
+                self.acc_t_lines[i].set_xdata(numpy.array([self.t_touch[i], self.t_touch[i]]))
+
+                # policy map
+                self.policy_lines[i].set_xdata(self.vel[i])
+                self.policy_lines[i].set_ydata(self.pos[i])
 
         self.traj_fig.canvas.draw()
         self.policy_fig.canvas.draw()
@@ -145,9 +160,11 @@ class TK_Interface:
 
         # initial state
         self.s_init_pos.config(from_=float(self.e_min_pos.get()), to=float(self.e_max_pos.get()), resolution=self.pos_res, tickinterval=(float(self.e_max_pos.get())-float(self.e_min_pos.get()))/5)
-        self.s_init_pos.set(float(self.e_max_pos.get()))
+        #if self.init_pos > float(self.e_max_pos.get()) and self.init_pos < float(self.e_min_pos.get()):
+        self.s_init_pos.set(float(self.e_max_pos.get())) # TRYING TO FIX SLIDER RESET
         self.s_init_vel.config(from_=float(self.e_min_vel.get()), to=float(self.e_max_vel.get()), resolution=self.vel_res, tickinterval=(float(self.e_max_vel.get())-float(self.e_min_vel.get()))/5)
-        self.s_init_vel.set(float(self.e_min_vel.get()))
+        #if self.init_vel > float(self.e_max_vel.get()) and self.init_vel < float(self.e_min_vel.get()):
+        self.s_init_vel.set(float(self.e_min_vel.get())) # TRYING TO FIX SLIDER RESET
 
         self.tk_root.update_idletasks()
 
@@ -167,6 +184,7 @@ class TK_Interface:
         self.e_vel_den_ratio.delete(0, tkinter.END)
         self.e_acc_factor.delete(0, tkinter.END)
         self.e_motion_bins.delete(0, tkinter.END)
+        self.e_num_samples.delete(0, tkinter.END)
 
 
         self.e_min_vel.insert(tkinter.END, '0')
@@ -183,7 +201,10 @@ class TK_Interface:
         self.e_vel_den_ratio.insert(tkinter.END, '0.05')
         self.e_acc_factor.insert(tkinter.END, '1')
         self.e_motion_bins.insert(tkinter.END, '3')
+        self.e_num_samples.insert(tkinter.END, '1')
 
+        #self.init_pos = float(self.e_max_pos.get()) # TRYING TO FIX SLIDER RESET
+        #self.init_vel = float(self.e_min_vel.get())
 
         self.update_gui('dummy_event')
 
@@ -257,60 +278,62 @@ class TK_Interface:
         self.vi = mdptoolbox.mdp.ValueIteration(transitions, reward, float(self.e_discount.get()), float(self.e_epsilon.get()), float(self.e_max_iter.get()), 0)
         self.vi.run()
 
-    def compute_traj(self):
+    def compute_trajs(self):
 
         # parameters
         time_step = 1/float(self.control_freq)
 
-        # initialise state
-        state = [int(float(self.s_init_pos.get())/self.pos_res), int(float(self.s_init_vel.get())/self.vel_res)]
-        prev_state = [0,0]
-
         # initialise trajectories for plotting
-        self.pos_raw.clear()
-        self.vel_raw.clear()
-        self.acc_raw.clear()
-        self.time.clear()
-        t = 0
-        self.t_touch = 0
+        self.pos_raw = [[] for i in range(int(self.e_num_samples.get()))]
+        self.vel_raw = [[] for i in range(int(self.e_num_samples.get()))]
+        self.acc_raw = [[] for i in range(int(self.e_num_samples.get()))]
+        self.time = [[] for i in range(int(self.e_num_samples.get()))]
+        self.t_touch = []
 
-        # populate trajectories
-        at_target = False
-        traj_end = False
-        while traj_end is False:
+        self.pos = [[] for i in range(int(self.e_num_samples.get()))]
+        self.vel = [[] for i in range(int(self.e_num_samples.get()))]
+        self.acc = [[] for i in range(int(self.e_num_samples.get()))]
 
-            if (state[0] == 0 and at_target == False):
-                self.t_touch = t
-                at_target = True
-                traj_end = True
+        # iterate over n samples
+        for i in range(0,int(self.e_num_samples.get())):
 
-            #if (prev_state == state):
-                #traj_end = True
+            # initialise state
+            state = [int(float(self.s_init_pos.get()) / self.pos_res), int(float(self.s_init_vel.get()) / self.vel_res)]
+            t = 0
 
-            target_vel = self.vi.policy[int(self.num_states - state[0] * self.num_actions - self.num_actions + state[1])]
+            # populate trajectories
+            at_target = False
+            traj_end = False
+            while traj_end is False:
 
-            self.pos_raw.append(state[0]) # current state
-            self.vel_raw.append(state[1]) # current velocity
-            self.acc_raw.append(target_vel-state[1]) # current accel
-            self.time.append(t)
-            t += time_step
+                if (state[0] == 0 and at_target == False):
+                    self.t_touch.append(t)
+                    at_target = True
+                    traj_end = True
 
-            #prev_state = state
-            new_pos = state[0] - target_vel + numpy.random.choice(numpy.linspace(-self.bin_centre_idx,self.bin_centre_idx,self.num_motion_bins),1,p=self.crude_gauss_hist)
-            if new_pos < float(self.e_min_pos.get())/self.pos_res:
-                new_pos = float(self.e_min_pos.get())/self.pos_res
-            elif new_pos > float(self.e_max_pos.get())/self.pos_res:
-                new_pos = float(self.e_max_pos.get())/self.pos_res
-            state = [new_pos, target_vel]
+                target_vel = self.vi.policy[int(self.num_states - state[0] * self.num_actions - self.num_actions + state[1])]
 
-        # rescale trajectories to correct dimensions
-        self.pos = [i*self.pos_res for i in self.pos_raw]
-        self.vel = [i*self.vel_res for i in self.vel_raw]
-        self.acc = [i*self.vel_res*self.control_freq for i in self.acc_raw]
+                self.pos_raw[i].append(state[0]) # current state
+                self.vel_raw[i].append(state[1]) # current velocity
+                self.acc_raw[i].append(target_vel-state[1]) # current accel
+                self.time[i].append(t)
+                t += time_step
+
+                new_pos = state[0] - target_vel + numpy.random.choice(numpy.linspace(-self.bin_centre_idx,self.bin_centre_idx,self.num_motion_bins),1,p=self.crude_gauss_hist)
+                if new_pos < float(self.e_min_pos.get())/self.pos_res:
+                    new_pos = float(self.e_min_pos.get())/self.pos_res
+                elif new_pos > float(self.e_max_pos.get())/self.pos_res:
+                    new_pos = float(self.e_max_pos.get())/self.pos_res
+                state = [new_pos, target_vel]
+
+                # rescale trajectories to correct dimensions
+            self.pos[i] = [j*self.pos_res for j in self.pos_raw[i]]
+            self.vel[i] = [j*self.vel_res for j in self.vel_raw[i]]
+            self.acc[i] = [j*self.vel_res*self.control_freq for j in self.acc_raw[i]]
 
     def compute(self):
         self.compute_vi()
-        self.compute_traj()
+        self.compute_trajs()
 
     # GUI Interaction Functions #
     #---------------------------#
@@ -321,8 +344,13 @@ class TK_Interface:
         self.update_plots(recomputed_flag=True)
 
     def BP_resample(self):
-        self.compute_traj()
+        print(self.init_pos)
+        self.update_gui('dummy_event')
+        print(self.init_pos)
+        self.compute_trajs()
+        print(self.init_pos)
         self.update_plots(recomputed_flag=False)
+        print(self.init_pos)
 
     def BP_reset(self):
         self.reset_gui()
@@ -332,12 +360,12 @@ class TK_Interface:
 
     def S_init_pos(self, v):
         self.init_pos = float(v)
-        self.compute_traj()
+        self.compute_trajs()
         self.update_plots(recomputed_flag=False)
 
     def S_init_vel(self, v):
         self.init_vel = float(v)
-        self.compute_traj()
+        self.compute_trajs()
         self.update_plots(recomputed_flag=False)
 
     # Main GUI Loop Funcion #
@@ -589,6 +617,28 @@ class TK_Interface:
 
         self.e_motion_bins = tkinter.Entry(f_tb)
         self.e_motion_bins.grid(row=row, column=column)
+
+        row += 1
+        column -= 1
+
+        # Plotting Options #
+        #------------------#
+
+        column += 3
+
+        l_plotting = tkinter.Label(f_tb, text='Plotting Options')
+        l_plotting.grid(row=row, column=column)
+
+        row += 1
+        column -= 3
+
+        l_num_samples = tkinter.Label(f_tb, text='num samples')
+        l_num_samples.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_num_samples = tkinter.Entry(f_tb)
+        self.e_num_samples.grid(row=row, column=column)
 
         row += 1
         column -= 1
