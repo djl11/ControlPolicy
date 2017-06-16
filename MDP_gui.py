@@ -3,6 +3,7 @@ import operator
 import functools
 import mdptoolbox
 import numpy
+numpy.set_printoptions(linewidth=1000,threshold=numpy.nan)
 import math
 import tkinter
 import threading
@@ -59,8 +60,8 @@ class TK_Interface:
             y_min = mid_pos - (mid_pos - min_pos)
             y_max = mid_pos + (max_pos - mid_pos) * 1.1
             self.pos_graph.set_ylim(y_min, y_max)
-            self.pos_line = self.pos_graph.plot(self.time, self.pos, 'b')[0]
-            self.pos_t_line = self.pos_graph.plot(numpy.array([x_max, x_max]), numpy.array([y_min, y_max]), 'r--')[0]
+            self.pos_line = self.pos_graph.plot(self.time, self.pos, 'b', marker='o', markeredgecolor='w')[0]
+            self.pos_t_line = self.pos_graph.plot(numpy.array([self.t_touch, self.t_touch]), numpy.array([y_min, y_max]), 'r--')[0]
 
             self.vel_graph.cla()
             self.vel_graph.set_title('Velocity (cm/s)')
@@ -71,8 +72,8 @@ class TK_Interface:
             y_min = mid_vel - (mid_vel - min_vel)
             y_max = mid_vel + (max_vel - mid_vel) * 1.1
             self.vel_graph.set_ylim(y_min, y_max)
-            self.vel_line = self.vel_graph.plot(self.time, self.vel, 'g')[0]
-            self.vel_t_line = self.vel_graph.plot(numpy.array([x_max, x_max]), numpy.array([y_min, y_max]), 'r--')[0]
+            self.vel_line = self.vel_graph.plot(self.time, self.vel, 'g', marker='o', markeredgecolor='w')[0]
+            self.vel_t_line = self.vel_graph.plot(numpy.array([self.t_touch, self.t_touch]), numpy.array([y_min, y_max]), 'r--')[0]
 
             self.acc_graph.cla()
             self.acc_graph.set_xlabel('Time (s)')
@@ -85,8 +86,8 @@ class TK_Interface:
             y_max = mid_acc + (max_acc - mid_acc) * 1.1
             self.acc_graph.set_ylim(y_min, y_max)
             self.acc_graph.plot(numpy.array([x_min, x_max]), numpy.array([0, 0]), 'k') # x axis
-            self.acc_line = self.acc_graph.plot(self.time, self.acc, 'r')[0]
-            self.acc_t_line = self.acc_graph.plot(numpy.array([x_max, x_max]), numpy.array([y_min, y_max]), 'r--')[0]
+            self.acc_line = self.acc_graph.plot(self.time, self.acc, 'r', marker='o', markeredgecolor='w')[0]
+            self.acc_t_line = self.acc_graph.plot(numpy.array([self.t_touch, self.t_touch]), numpy.array([y_min, y_max]), 'r--')[0]
 
             # policy map
 
@@ -108,13 +109,13 @@ class TK_Interface:
             x_max = max(self.time)
             self.pos_line.set_xdata(self.time)
             self.pos_line.set_ydata(self.pos)
-            self.pos_t_line.set_xdata(numpy.array([x_max, x_max]))
+            self.pos_t_line.set_xdata(numpy.array([self.t_touch, self.t_touch]))
             self.vel_line.set_xdata(self.time)
             self.vel_line.set_ydata(self.vel)
-            self.vel_t_line.set_xdata(numpy.array([x_max, x_max]))
+            self.vel_t_line.set_xdata(numpy.array([self.t_touch, self.t_touch]))
             self.acc_line.set_xdata(self.time)
             self.acc_line.set_ydata(self.acc)
-            self.acc_t_line.set_xdata(numpy.array([x_max, x_max]))
+            self.acc_t_line.set_xdata(numpy.array([self.t_touch, self.t_touch]))
 
             # policy map
             self.policy_line.set_xdata(self.vel)
@@ -153,8 +154,10 @@ class TK_Interface:
         self.e_epsilon.delete(0, tkinter.END)
         self.e_max_iter.delete(0, tkinter.END)
         self.e_dist_factor.delete(0, tkinter.END)
+        self.e_vel_factor.delete(0, tkinter.END)
+        self.e_vel_den_ratio.delete(0, tkinter.END)
         self.e_acc_factor.delete(0, tkinter.END)
-        self.e_gauss_bins.delete(0, tkinter.END)
+        self.e_motion_bins.delete(0, tkinter.END)
 
 
         self.e_min_vel.insert(tkinter.END, '0')
@@ -167,8 +170,10 @@ class TK_Interface:
         self.e_epsilon.insert(tkinter.END, '0.01')
         self.e_max_iter.insert(tkinter.END, '1000')
         self.e_dist_factor.insert(tkinter.END, '1')
+        self.e_vel_factor.insert(tkinter.END, '1')
+        self.e_vel_den_ratio.insert(tkinter.END, '0.05')
         self.e_acc_factor.insert(tkinter.END, '1')
-        self.e_gauss_bins.insert(tkinter.END, '1')
+        self.e_motion_bins.insert(tkinter.END, '1')
 
 
         self.update_gui('dummy_event')
@@ -178,11 +183,11 @@ class TK_Interface:
         # parameters
         self.num_actions = int(self.e_num_actions.get())
         self.num_pos_states = int(self.e_num_positions.get())
-        self.num_gauss_bins = int(self.e_gauss_bins.get())
+        self.num_motion_bins = int(self.e_motion_bins.get())
         self.num_states = self.num_pos_states * self.num_actions
 
         # crude gaussian histogram
-        self.crude_gauss_hist = self.gaussian(numpy.linspace(-3,3,2*self.num_gauss_bins+1))
+        self.crude_gauss_hist = self.gaussian(numpy.linspace(-3,3,2*self.num_motion_bins+1))
         self.crude_gauss_hist = self.crude_gauss_hist[1::2]
         self.crude_gauss_hist = self.crude_gauss_hist/numpy.sum(self.crude_gauss_hist)
 
@@ -191,27 +196,37 @@ class TK_Interface:
         no_vel_trans = numpy.zeros((self.num_states, self.num_states))
         # setup base zero velocity transition matrix, for i = 0
         for i in range(0, int(self.num_states / self.num_actions)):
-            for j in range(0,self.num_gauss_bins):
-                if (i * self.num_actions + j -int(self.num_gauss_bins/2) >= 0 and i * self.num_actions + j -int(self.num_gauss_bins/2) < self.num_states):
-                    no_vel_trans[i * self.num_actions:i * self.num_actions + self.num_actions, i * self.num_actions + j -int(self.num_gauss_bins/2)] = numpy.full(self.num_actions, self.crude_gauss_hist[j])
+            for j in range(0,self.num_motion_bins):
+                if (i * self.num_actions + j -int(self.num_motion_bins/2) >= 0 and i * self.num_actions + j -int(self.num_motion_bins/2) < self.num_states):
+                    no_vel_trans[i * self.num_actions:i * self.num_actions + self.num_actions, i * self.num_actions + j -int(self.num_motion_bins/2)] = numpy.full(self.num_actions, self.crude_gauss_hist[j])
         # setup full transition matrix based on position state
         for i in range(0, self.num_actions):
-            transitions[i, :, :] = numpy.roll(no_vel_trans, i * self.num_actions + i, 1)
-            #transitions[i,:,0:i * self.num_actions] = 0
-            #transitions[i,:,self.num_states-i*self.num_actions:self.num_states] = no_vel_trans[:,self.num_states-i*self.num_actions:self.num_states]
+            transitions[i, 0:self.num_states-i*self.num_actions, :] = numpy.roll(no_vel_trans[0:self.num_states-i*self.num_actions,:], i * self.num_actions + i, 1)
+            transitions[i,self.num_states-i*self.num_actions:self.num_states,self.num_states-self.num_actions+i] = 1
 
         # reward matrix
         reward = numpy.zeros((self.num_states, self.num_actions))
         for i in range(0, self.num_states):
             for j in range(0, self.num_actions):
-                reward[i, j] = -float(self.e_dist_factor.get())*abs(math.floor((self.num_states - i) / self.num_actions))*self.pos_res - float(self.e_acc_factor.get())*pow(
-                    (j*self.vel_res - (i - math.floor(i / self.num_actions) * self.num_actions)*self.vel_res), 2)
+                dist_to_target = abs(math.floor((self.num_states - i) / self.num_actions))*self.pos_res
+                vel = j*self.vel_res
+                prev_vel = (i - math.floor(i / self.num_actions) * self.num_actions)*self.vel_res
+                vel_over_dist = vel/(dist_to_target+float(self.e_max_pos.get())*float(self.e_vel_den_ratio.get()))
+                delta_vel_sqaured = pow((vel - prev_vel), 2)
+                reward[i, j] = -float(self.e_dist_factor.get())*dist_to_target \
+                               - float(self.e_vel_factor.get()) * vel_over_dist \
+                               -float(self.e_acc_factor.get()) * delta_vel_sqaured
+
+        # normalise reward
+        reward /= abs(numpy.sum(reward)/reward.size)
 
         # define value iteration
         self.vi = mdptoolbox.mdp.ValueIteration(transitions, reward, float(self.e_discount.get()), float(self.e_epsilon.get()), float(self.e_max_iter.get()), 0)
         self.vi.run()
 
     def compute_traj(self):
+
+        print('computing traj')
 
         # parameters
         time_step = 1/float(self.control_freq)
@@ -225,15 +240,23 @@ class TK_Interface:
         self.acc_raw.clear()
         self.time.clear()
         t = 0
+        self.t_touch = 0
 
         # populate trajectories
+        at_target = False
         traj_end = False
-        while traj_end is False:
+        while at_target is False:
 
-            if (state[0] == 0 and state[1] == 0):
-                traj_end = True
+            if (state[0] == 0 and at_target == False):
+                self.t_touch = t
+                at_target = True
+                print('at target')
 
             target_vel = self.vi.policy[int(self.num_states - state[0] * self.num_actions - self.num_actions + state[1])]
+
+            if (at_target == True and state[1] == target_vel):
+                traj_end = True
+                print(str(state[1]) + ' == ' + str(target_vel))
 
             self.pos_raw.append(state[0]) # current state
             self.vel_raw.append(state[1]) # current velocity
@@ -241,8 +264,10 @@ class TK_Interface:
             self.time.append(t)
             t += time_step
 
-            new_pos = (state[0] - target_vel) % self.num_pos_states
+            new_pos = (state[0] - target_vel) if (state[0] - target_vel) > 0 else 0
             state = [new_pos, target_vel]
+
+            print(state[0])
 
         # rescale trajectories to correct dimensions
         self.pos = [i*self.pos_res for i in self.pos_raw]
@@ -310,7 +335,7 @@ class TK_Interface:
 
         column += 3
 
-        l_vel = tkinter.Label(f_tb, text='velocity parameters')
+        l_vel = tkinter.Label(f_tb, text='velocity Parameters')
         l_vel.grid(row=row, column=column)
 
         row += 1
@@ -361,7 +386,7 @@ class TK_Interface:
 
         column += 3
 
-        l_pos = tkinter.Label(f_tb, text='Position parameters')
+        l_pos = tkinter.Label(f_tb, text='Position Parameters')
         l_pos.grid(row=row, column=column)
 
         row += 1
@@ -412,7 +437,7 @@ class TK_Interface:
 
         column += 3
 
-        l_vi = tkinter.Label(f_tb, text='Value Iteration parameters')
+        l_vi = tkinter.Label(f_tb, text='Value Iteration Parameters')
         l_vi.grid(row=row, column=column)
 
         row += 1
@@ -461,7 +486,7 @@ class TK_Interface:
 
         column += 3
 
-        l_rew = tkinter.Label(f_tb, text='Reward parameters')
+        l_rew = tkinter.Label(f_tb, text='Reward Parameters')
         l_rew.grid(row=row, column=column)
 
         row += 1
@@ -477,6 +502,26 @@ class TK_Interface:
 
         column += 1
 
+        l_vel_factor = tkinter.Label(f_tb, text='vel factor')
+        l_vel_factor.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_vel_factor = tkinter.Entry(f_tb)
+        self.e_vel_factor.grid(row=row, column=column)
+
+        column += 1
+
+        l_vel_den_ratio = tkinter.Label(f_tb, text='vel den ratio')
+        l_vel_den_ratio.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_vel_den_ratio = tkinter.Entry(f_tb)
+        self.e_vel_den_ratio.grid(row=row, column=column)
+
+        column += 1
+
         l_acc_factor = tkinter.Label(f_tb, text='acc^2 factor')
         l_acc_factor.grid(row=row, column=column)
 
@@ -485,18 +530,30 @@ class TK_Interface:
         self.e_acc_factor = tkinter.Entry(f_tb)
         self.e_acc_factor.grid(row=row, column=column)
 
-        column += 1
+        row += 1
+        column -=7
 
-        l_gauss_bins = tkinter.Label(f_tb, text='gauss bins')
-        l_gauss_bins.grid(row=row, column=column)
+        # Noise Parameters #
+        #------------------#
 
-        column += 1
+        column += 3
 
-        self.e_gauss_bins = tkinter.Entry(f_tb)
-        self.e_gauss_bins.grid(row=row, column=column)
+        l_noise = tkinter.Label(f_tb, text='Noise Parameters')
+        l_noise.grid(row=row, column=column)
 
         row += 1
-        column -=3
+        column -= 3
+
+        l_motion_bins = tkinter.Label(f_tb, text='motion bins')
+        l_motion_bins.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_motion_bins = tkinter.Entry(f_tb)
+        self.e_motion_bins.grid(row=row, column=column)
+
+        row += 1
+        column -= 1
 
         # Initial State #
         #---------------#
