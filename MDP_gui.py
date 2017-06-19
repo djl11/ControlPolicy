@@ -78,7 +78,7 @@ class TK_Interface:
             y_min = mid_acc - (mid_acc - min_acc) * 1.1
             y_max = mid_acc + (max_acc - mid_acc) * 1.1
             self.acc_graph.set_ylim(y_min, y_max)
-            self.acc_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')  # x axis
+            self.acc_x_axis = self.acc_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
 
             # policy map
             self.policy_graph.cla()
@@ -93,7 +93,6 @@ class TK_Interface:
                                      extent=[float(self.e_min_vel.get()), float(self.e_max_vel.get()),
                                              float(self.e_max_pos.get()), float(self.e_min_pos.get())])
             self.policy_graph.autoscale(False)
-
 
             # init traj arrays
             self.pos_lines = []
@@ -124,6 +123,7 @@ class TK_Interface:
                     self.pos_graph.set_xlim(0, max(self.t_touch))
                     self.vel_graph.set_xlim(0, max(self.t_touch))
                     self.acc_graph.set_xlim(0, max(self.t_touch))
+                    self.acc_x_axis.set_xdata(numpy.array([0, max(self.t_touch)]))
 
             # trajectories
 
@@ -166,6 +166,27 @@ class TK_Interface:
         #if self.init_vel > float(self.e_max_vel.get()) and self.init_vel < float(self.e_min_vel.get()):
         self.s_init_vel.set(float(self.e_min_vel.get())) # TRYING TO FIX SLIDER RESET
 
+        # parameters
+        self.num_actions = int(self.e_num_actions.get())
+        self.num_pos_states = int(self.e_num_positions.get())
+        self.num_motion_bins = int(self.e_motion_bins.get())
+        self.num_pos_meas_bins = int(self.e_pos_meas_bins.get())
+        self.num_states = self.num_pos_states * self.num_actions
+
+        # crude gaussian histograms
+
+        # motion
+        self.crude_motion_hist = self.gaussian(numpy.linspace(-3, 3, 2 * self.num_motion_bins + 1))
+        self.crude_motion_hist = self.crude_motion_hist[1::2]
+        self.crude_motion_hist = self.crude_motion_hist / numpy.sum(self.crude_motion_hist)
+
+        # pos measurement
+        self.crude_pos_meas_hist = self.gaussian(numpy.linspace(-3, 3, 2 * self.num_pos_meas_bins + 1))
+        self.crude_pos_meas_hist = self.crude_pos_meas_hist[1::2]
+        self.crude_pos_meas_hist = self.crude_pos_meas_hist / numpy.sum(self.crude_pos_meas_hist)
+
+
+
         self.tk_root.update_idletasks()
 
     def reset_gui(self):
@@ -184,6 +205,7 @@ class TK_Interface:
         self.e_vel_den_ratio.delete(0, tkinter.END)
         self.e_acc_factor.delete(0, tkinter.END)
         self.e_motion_bins.delete(0, tkinter.END)
+        self.e_pos_meas_bins.delete(0, tkinter.END)
         self.e_num_samples.delete(0, tkinter.END)
 
 
@@ -200,7 +222,8 @@ class TK_Interface:
         self.e_vel_factor.insert(tkinter.END, '1')
         self.e_vel_den_ratio.insert(tkinter.END, '0.05')
         self.e_acc_factor.insert(tkinter.END, '1')
-        self.e_motion_bins.insert(tkinter.END, '3')
+        self.e_motion_bins.insert(tkinter.END, '1')
+        self.e_pos_meas_bins.insert(tkinter.END, '3')
         self.e_num_samples.insert(tkinter.END, '1')
 
         #self.init_pos = float(self.e_max_pos.get()) # TRYING TO FIX SLIDER RESET
@@ -210,27 +233,19 @@ class TK_Interface:
 
     def compute_vi(self):
 
-        # parameters
-        self.num_actions = int(self.e_num_actions.get())
-        self.num_pos_states = int(self.e_num_positions.get())
-        self.num_motion_bins = int(self.e_motion_bins.get())
-        self.num_states = self.num_pos_states * self.num_actions
-
-        # crude gaussian histogram
-        self.crude_gauss_hist = self.gaussian(numpy.linspace(-3,3,2*self.num_motion_bins+1))
-        self.crude_gauss_hist = self.crude_gauss_hist[1::2]
-        self.crude_gauss_hist = self.crude_gauss_hist/numpy.sum(self.crude_gauss_hist)
-
         # transition matrix
         transitions = numpy.zeros((self.num_actions, self.num_states, self.num_states))
         no_vel_trans = numpy.zeros((self.num_states, self.num_states))
+
+        self.motion_centre_idx = int(self.num_motion_bins / 2)
+        self.pos_meas_centre_idx = int(self.num_pos_meas_bins / 2)
+
         # setup base zero velocity transition matrix, for i = 0
-        self.bin_centre_idx = int(self.num_motion_bins/2)
         for i in range(0, int(self.num_states / self.num_actions)): # iterate over pos states
             for j in range(0,self.num_motion_bins): # iterate over bins
-                bin_range = (j -self.bin_centre_idx)*self.num_actions
+                bin_range = (j - self.motion_centre_idx) * self.num_actions
                 horizontal_coord = i * self.num_actions + bin_range
-                no_vel_trans[i * self.num_actions:i * self.num_actions + self.num_actions, horizontal_coord % self.num_states] = numpy.full(self.num_actions, self.crude_gauss_hist[j])
+                no_vel_trans[i * self.num_actions:i * self.num_actions + self.num_actions, horizontal_coord % self.num_states] = numpy.full(self.num_actions, self.crude_motion_hist[j])
 
         # setup full transition matrix based on position state
         for i in range(0, self.num_actions):
@@ -239,39 +254,64 @@ class TK_Interface:
             transitions[i, :, :] = numpy.roll(no_vel_trans[:,:], i * self.num_actions + i, 1)
 
             #re-normalise border at top
-            if (i < self.bin_centre_idx):  # if there are border terms
-                for j in range(0,self.bin_centre_idx - i): # iterate over groups
+            if (i < self.motion_centre_idx):  # if there are border terms
+                for j in range(0, self.motion_centre_idx - i): # iterate over groups
                     # top-left (starting state border)
-                    transitions[i,j*self.num_actions:(j+1)*self.num_actions, i] += numpy.sum(self.crude_gauss_hist[0:self.bin_centre_idx-j-i])
+                    transitions[i,j*self.num_actions:(j+1)*self.num_actions, i] += numpy.sum(self.crude_motion_hist[0:self.motion_centre_idx - j - i])
                     # top-right (initial rolled over)
-                    start = self.num_states - (self.bin_centre_idx-i) * self.num_actions + i
+                    start = self.num_states - (self.motion_centre_idx - i) * self.num_actions + i
                     transitions[i, 0:(j + 1) * self.num_actions, start + j*self.num_actions] = 0
 
 
             #re-normalise border at bottom
-            for j in range(0,self.bin_centre_idx + i):
+            for j in range(0, self.motion_centre_idx + i):
                 # bottom-right (final state border)
-                start_j = self.num_states+(j-self.bin_centre_idx-i)*self.num_actions
-                end_j = self.num_states+(j+1-self.bin_centre_idx-i)*self.num_actions
-                transitions[i,start_j:end_j,self.num_states-self.num_actions+i] += numpy.sum(self.crude_gauss_hist[0:j+1])\
+                start_j = self.num_states+ (j - self.motion_centre_idx - i) * self.num_actions
+                end_j = self.num_states+ (j + 1 - self.motion_centre_idx - i) * self.num_actions
+                transitions[i,start_j:end_j,self.num_states-self.num_actions+i] += numpy.sum(self.crude_motion_hist[0:j + 1])\
                                                                 if j<float(self.e_motion_bins.get()) else 1
                 # bottom-right (final state-rolled over)
                 transitions[i,start_j:self.num_states, i+j*self.num_actions] = 0
 
         # reward matrix
+
+        reward_entry_mat = numpy.zeros((self.num_pos_meas_bins))
         reward = numpy.zeros((self.num_states, self.num_actions))
         for i in range(0, self.num_states):
             for j in range(0, self.num_actions):
-                dist_to_target = abs(math.floor((self.num_states - i) / self.num_actions))*self.pos_res
-                vel = j*self.vel_res
-                prev_vel = (i - math.floor(i / self.num_actions) * self.num_actions)*self.vel_res
-                vel_over_dist = vel/(dist_to_target+float(self.e_max_pos.get())*float(self.e_vel_den_ratio.get()))
-                delta_vel_sqaured = pow((vel - prev_vel), 2)
-                reward[i, j] = -float(self.e_dist_factor.get())*dist_to_target \
-                               - float(self.e_vel_factor.get()) * vel_over_dist \
-                               -float(self.e_acc_factor.get()) * delta_vel_sqaured
 
-        # normalise reward
+                # each bin averaged reward entry term
+
+                for pos_it in range(0,self.num_pos_meas_bins):
+
+                    # each component of the bin average
+
+                    # dist to target
+                    unbounded_dist = abs(math.floor((self.num_states - i -1) / self.num_actions)) + pos_it - self.pos_meas_centre_idx
+                    if unbounded_dist <= 0:
+                        dist_to_target = 0
+                    elif unbounded_dist >= self.num_pos_states:
+                        dist_to_target = abs(math.floor((self.num_states-1) / self.num_actions)) * self.pos_res
+                    else:
+                        dist_to_target = unbounded_dist * self.pos_res
+
+                    # velocities
+                    vel = j * self.vel_res
+                    prev_vel = (i - math.floor(i / self.num_actions) * self.num_actions) * self.vel_res
+
+                    # other terms
+                    vel_over_dist = vel / (dist_to_target + float(self.e_max_pos.get()) * float(self.e_vel_den_ratio.get()))
+                    delta_vel_sqaured = pow((vel - prev_vel), 2)
+
+                    # final reward expression for specific belief state
+                    reward_entry_mat[pos_it] = -float(self.e_dist_factor.get())*dist_to_target\
+                                               -float(self.e_vel_factor.get()) * vel_over_dist\
+                                               -float(self.e_acc_factor.get()) * delta_vel_sqaured
+
+                # total reward of being in this state, given possibilities
+                reward[i, j] = numpy.sum(numpy.dot(reward_entry_mat, self.crude_pos_meas_hist))
+
+        # normalise total reward mat
         reward /= abs(numpy.sum(reward)/reward.size)
 
         # define value iteration
@@ -311,6 +351,9 @@ class TK_Interface:
                     at_target = True
                     traj_end = True
 
+                # measurement
+                state_meas = [state[0] + numpy.random.choice(numpy.linspace(-self.motion_centre_idx, self.motion_centre_idx, self.num_motion_bins), 1, p=self.crude_motion_hist)]
+
                 target_vel = self.vi.policy[int(self.num_states - state[0] * self.num_actions - self.num_actions + state[1])]
 
                 self.pos_raw[i].append(state[0]) # current state
@@ -319,7 +362,8 @@ class TK_Interface:
                 self.time[i].append(t)
                 t += time_step
 
-                new_pos = state[0] - target_vel + numpy.random.choice(numpy.linspace(-self.bin_centre_idx,self.bin_centre_idx,self.num_motion_bins),1,p=self.crude_gauss_hist)
+                # motion noise
+                new_pos = state[0] - target_vel + numpy.random.choice(numpy.linspace(-self.motion_centre_idx, self.motion_centre_idx, self.num_motion_bins), 1, p=self.crude_motion_hist)
                 if new_pos < float(self.e_min_pos.get())/self.pos_res:
                     new_pos = float(self.e_min_pos.get())/self.pos_res
                 elif new_pos > float(self.e_max_pos.get())/self.pos_res:
@@ -344,13 +388,9 @@ class TK_Interface:
         self.update_plots(recomputed_flag=True)
 
     def BP_resample(self):
-        print(self.init_pos)
         self.update_gui('dummy_event')
-        print(self.init_pos)
         self.compute_trajs()
-        print(self.init_pos)
         self.update_plots(recomputed_flag=False)
-        print(self.init_pos)
 
     def BP_reset(self):
         self.reset_gui()
@@ -618,8 +658,18 @@ class TK_Interface:
         self.e_motion_bins = tkinter.Entry(f_tb)
         self.e_motion_bins.grid(row=row, column=column)
 
+        column += 1
+
+        l_pos_meas_bins = tkinter.Label(f_tb, text='pos meas bins')
+        l_pos_meas_bins.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_pos_meas_bins = tkinter.Entry(f_tb)
+        self.e_pos_meas_bins.grid(row=row, column=column)
+
         row += 1
-        column -= 1
+        column -= 3
 
         # Plotting Options #
         #------------------#
