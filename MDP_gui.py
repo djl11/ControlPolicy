@@ -220,7 +220,7 @@ class TK_Interface:
         self.e_pos_meas_bins.delete(0, tkinter.END)
         self.e_num_samples.delete(0, tkinter.END)
 
-        self.dof_comp = 0
+        self.dof_comp.set(1)
         self.e_min_pos.insert(tkinter.END, '0')
         self.e_max_pos.insert(tkinter.END, '50')
         self.e_num_positions.insert(tkinter.END, '126')
@@ -275,7 +275,7 @@ class TK_Interface:
 
 
             #re-normalise border at bottom
-            if self.dof_comp == 0: # z mode
+            if self.dof_comp.get() == 1: # z mode
                 for j in range(0, self.motion_centre_idx + i):
                     # bottom-right (final state border)
                     start_j = self.num_states+ (j - self.motion_centre_idx - i) * self.num_actions
@@ -285,8 +285,10 @@ class TK_Interface:
                     # bottom-right (final state-rolled over)
                     transitions[i,start_j:self.num_states, i+j*self.num_actions] = 0
 
+            print(self.dof_comp.get())
+
             '''
-            elif self.dof_comp == 1: # x-y mode
+            elif self.dof_comp == 2: # x-y mode
                 for j in range(0, self.motion_centre_idx + i):
                     start_j = self.num_states+ (j - self.motion_centre_idx - i) * self.num_actions
                     # mirror rollover terms about rhs border of matrix
@@ -501,7 +503,7 @@ class TK_Interface:
         column += 1
 
         self.dof_comp = tkinter.IntVar()
-        self.r_dof_comp_z = tkinter.Radiobutton(f_tb,variable=self.dof_comp, value=0)
+        self.r_dof_comp_z = tkinter.Radiobutton(f_tb, variable=self.dof_comp, value=1)
         self.r_dof_comp_z.grid(row=row, column=column)
 
         column += 1
@@ -511,7 +513,7 @@ class TK_Interface:
 
         column += 1
 
-        self.r_dof_comp_xy = tkinter.Radiobutton(f_tb,variable=self.dof_comp, value=1)
+        self.r_dof_comp_xy = tkinter.Radiobutton(f_tb, variable=self.dof_comp, value=2)
         self.r_dof_comp_xy.grid(row=row, column=column)
 
         column += 1
@@ -521,7 +523,7 @@ class TK_Interface:
 
         column += 1
 
-        self.r_dof_comp_ang = tkinter.Radiobutton(f_tb,variable=self.dof_comp, value=2)
+        self.r_dof_comp_ang = tkinter.Radiobutton(f_tb, variable=self.dof_comp, value=3)
         self.r_dof_comp_ang.grid(row=row, column=column)
 
         row += 1
