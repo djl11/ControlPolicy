@@ -100,6 +100,7 @@ class TK_Interface:
             self.pos_t_lines = []
             self.vel_lines = []
             self.vel_t_lines = []
+            self.vel_v_lines =[]
             self.acc_lines = []
             self.acc_t_lines = []
             self.policy_lines = []
@@ -112,6 +113,7 @@ class TK_Interface:
 
                 self.vel_lines.append(self.vel_graph.plot(self.time[i], self.vel[i], 'r', marker='o', markeredgecolor='w')[0])
                 self.vel_t_lines.append(self.vel_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([y_min, y_max]), 'r--')[0])
+                self.vel_v_lines.append(self.vel_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([self.v_touch[i], self.v_touch[i]]), 'r--')[0])
 
                 self.acc_lines.append(self.acc_graph.plot(self.time[i], self.acc[i], 'g', marker='o', markeredgecolor='w')[0])
                 self.acc_t_lines.append(self.acc_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([y_min, y_max]), 'r--')[0])
@@ -126,6 +128,8 @@ class TK_Interface:
                     self.vel_graph.set_xlim(0, max(self.t_touch))
                     self.acc_graph.set_xlim(0, max(self.t_touch))
                     self.acc_x_axis.set_xdata(numpy.array([0, max(self.t_touch)]))
+                    for i in range(0,int(self.e_num_samples.get())):
+                        self.vel_v_lines[i].set_xdata(numpy.array([0, max(self.t_touch)]))
 
             # trajectories
 
@@ -140,6 +144,7 @@ class TK_Interface:
                 self.vel_lines[i].set_xdata(self.time[i])
                 self.vel_lines[i].set_ydata(self.vel[i])
                 self.vel_t_lines[i].set_xdata(numpy.array([self.t_touch[i], self.t_touch[i]]))
+                self.vel_v_lines[i].set_ydata(numpy.array([self.v_touch[i], self.v_touch[i]]))
 
                 self.acc_lines[i].set_xdata(self.time[i])
                 self.acc_lines[i].set_ydata(self.acc[i])
@@ -336,6 +341,7 @@ class TK_Interface:
         self.acc_raw = [[] for i in range(int(self.e_num_samples.get()))]
         self.time = [[] for i in range(int(self.e_num_samples.get()))]
         self.t_touch = []
+        self.v_touch = []
 
         self.pos = [[] for i in range(int(self.e_num_samples.get()))]
         self.pos_meas = [[] for i in range(int(self.e_num_samples.get()))]
@@ -356,6 +362,8 @@ class TK_Interface:
 
                 if (state[0] == 0 and at_target == False):
                     self.t_touch.append(t)
+                    self.v_touch.append(state[1]*self.vel_res)
+                    print(state[1]*self.vel_res)
                     at_target = True
                     traj_end = True
 
