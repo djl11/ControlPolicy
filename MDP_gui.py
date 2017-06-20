@@ -48,37 +48,59 @@ class TK_Interface:
             # position graph
             self.pos_graph.cla()
             self.pos_graph.set_title('Displacement (cm)')
-            self.pos_graph.set_xlim(0, max(self.t_touch))
             min_pos = float(self.e_min_pos.get())
             max_pos = float(self.e_max_pos.get())
             mid_pos = (max_pos + min_pos) / 2
             pos_y_min = mid_pos - (mid_pos - min_pos)
             pos_y_max = mid_pos + (max_pos - mid_pos) * 1.1
-            self.pos_graph.set_ylim(pos_y_min, pos_y_max)
+            if self.dof_comp.get() == 0:
+                self.pos_graph.set_xlim(0, max(self.t_touch))
+                self.pos_graph.set_ylim(pos_y_min, pos_y_max)
+                self.pos_x_axis = self.pos_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
+            elif self.dof_comp.get() == 1:
+                pos_min_est = float((self.num_motion_bins-1)/2+(self.num_pos_meas_bins-1)/2)*self.pos_res
+                self.pos_graph.set_xlim(0, self.t_max)
+                self.pos_graph.set_ylim(-pos_min_est, pos_y_max)
+                self.pos_x_axis = self.pos_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
+
+
 
             # velocity graph
             self.vel_graph.cla()
             self.vel_graph.set_title('Velocity (cm/s)')
-            self.vel_graph.set_xlim(0, max(self.t_touch))
             min_vel = float(self.e_min_vel.get())
             max_vel = float(self.e_max_vel.get())
             mid_vel = (max_vel + min_vel) / 2
             vel_y_min = mid_vel - (mid_vel - min_vel)
             vel_y_max = mid_vel + (max_vel - mid_vel) * 1.1
-            self.vel_graph.set_ylim(vel_y_min, vel_y_max)
+            if self.dof_comp.get() == 0:
+                self.vel_graph.set_xlim(0, max(self.t_touch))
+                self.vel_graph.set_ylim(vel_y_min, vel_y_max)
+                self.vel_x_axis = self.vel_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
+            elif self.dof_comp.get() == 1:
+                self.vel_graph.set_xlim(0, self.t_max)
+                self.vel_graph.set_ylim(-vel_y_max, vel_y_max)
+                self.vel_x_axis = self.vel_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
+
 
             # acceleration graph
             self.acc_graph.cla()
             self.acc_graph.set_xlabel('Time (s)')
             self.acc_graph.set_title('Acceleration (cm/s^2)')
-            self.acc_graph.set_xlim(0, max(self.t_touch))
             min_acc = min([min(sublist) for sublist in self.acc])
             max_acc = max([max(sublist) for sublist in self.acc])
             mid_acc = (max_acc + min_acc) / 2
-            acc_y_min = mid_acc - (mid_acc - min_acc) * 1.1
-            acc_y_max = mid_acc + (max_acc - mid_acc) * 1.1
-            self.acc_graph.set_ylim(acc_y_min, acc_y_max)
-            self.acc_x_axis = self.acc_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
+            self.acc_y_min = mid_acc - (mid_acc - min_acc) * 1.1
+            self.acc_y_max = mid_acc + (max_acc - mid_acc) * 1.1
+            if self.dof_comp.get() == 0:
+                self.acc_graph.set_xlim(0, max(self.t_touch))
+                self.acc_graph.set_ylim(self.acc_y_min, self.acc_y_max)
+                self.acc_x_axis = self.acc_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
+            elif self.dof_comp.get() == 1:
+                self.acc_graph.set_xlim(0, self.t_max)
+                self.acc_graph.set_ylim(-self.acc_y_max, self.acc_y_max)
+                self.acc_x_axis = self.acc_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
+
 
             # policy map
             self.policy_graph.cla()
@@ -116,7 +138,7 @@ class TK_Interface:
                 self.vel_v_lines.append(self.vel_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([self.v_touch[i], self.v_touch[i]]), 'r--')[0])
 
                 self.acc_lines.append(self.acc_graph.plot(self.time[i], self.acc[i], 'g', marker='o', markeredgecolor='w')[0])
-                self.acc_t_lines.append(self.acc_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([acc_y_min, acc_y_max]), 'r--')[0])
+                self.acc_t_lines.append(self.acc_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([self.acc_y_min, self.acc_y_max]), 'r--')[0])
 
                 self.policy_lines.append(self.policy_graph.plot(self.vel[i], self.pos[i], color='k', linestyle='-', linewidth=3, marker='o', markeredgecolor='w')[0])
 
@@ -124,12 +146,22 @@ class TK_Interface:
 
             if (self.init_pos == float(self.e_max_pos.get())):
                     # max pos required in condition to prevent long trajectories from small starting positions
-                    self.pos_graph.set_xlim(0, max(self.t_touch))
-                    self.vel_graph.set_xlim(0, max(self.t_touch))
-                    self.acc_graph.set_xlim(0, max(self.t_touch))
-                    self.acc_x_axis.set_xdata(numpy.array([0, max(self.t_touch)]))
+                    if self.dof_comp.get() == 0:
+                        t_term = max(self.t_touch)
+                    elif self.dof_comp.get() == 1:
+                        t_term = self.t_max
+                    self.pos_graph.set_xlim(0, t_term)
+                    self.vel_graph.set_xlim(0, t_term)
+                    self.acc_graph.set_xlim(0, t_term)
+                    self.acc_x_axis.set_xdata(numpy.array([0, t_term]))
+                    min_acc = min([min(sublist) for sublist in self.acc])
+                    max_acc = max([max(sublist) for sublist in self.acc])
+                    mid_acc = (max_acc + min_acc) / 2
+                    self.acc_y_min = mid_acc - (mid_acc - min_acc) * 1.1
+                    self.acc_y_max = mid_acc + (max_acc - mid_acc) * 1.1
+                    self.acc_graph.set_ylim(self.acc_y_min, self.acc_y_max)
                     for i in range(0,int(self.e_num_samples.get())):
-                        self.vel_v_lines[i].set_xdata(numpy.array([0, max(self.t_touch)]))
+                        self.vel_v_lines[i].set_xdata(numpy.array([0, t_term]))
 
             # trajectories
 
@@ -146,6 +178,17 @@ class TK_Interface:
                 self.vel_t_lines[i].set_xdata(numpy.array([self.t_touch[i], self.t_touch[i]]))
                 self.vel_v_lines[i].set_ydata(numpy.array([self.v_touch[i], self.v_touch[i]]))
 
+                # update accel y lims
+                min_acc = min([min(sublist) for sublist in self.acc])
+                max_acc = max([max(sublist) for sublist in self.acc])
+                mid_acc = (max_acc + min_acc) / 2
+
+                if (mid_acc - (mid_acc - min_acc) * 1.1 < self.acc_y_min):
+                    self.acc_y_min = mid_acc - (mid_acc - min_acc) * 1.1
+                if (mid_acc + (max_acc - mid_acc) * 1.1 > self.acc_y_max):
+                    self.acc_y_max = mid_acc + (max_acc - mid_acc) * 1.1
+                self.acc_graph.set_ylim(self.acc_y_min, self.acc_y_max)
+
                 self.acc_lines[i].set_xdata(self.time[i])
                 self.acc_lines[i].set_ydata(self.acc[i])
                 self.acc_t_lines[i].set_xdata(numpy.array([self.t_touch[i], self.t_touch[i]]))
@@ -157,7 +200,14 @@ class TK_Interface:
         self.traj_fig.canvas.draw()
         self.policy_fig.canvas.draw()
 
-    def update_gui(self, event):
+    def update_gui(self, event = 'dummy'):
+
+        # dof mode
+        if self.dof_comp.get() == 0:
+            self.e_t_max.config(state='disable')
+        else:
+            self.e_t_max.config(state='normal')
+            self.t_max = int(self.e_t_max.get())
 
         # space, vel, and time resolutions
         self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (float(self.e_num_actions.get()) - 1)
@@ -197,8 +247,7 @@ class TK_Interface:
         self.motion_centre_idx = int(self.num_motion_bins / 2)
         self.pos_meas_centre_idx = int(self.num_pos_meas_bins / 2)
 
-
-
+        # perform updates
         self.tk_root.update_idletasks()
 
     def reset_gui(self):
@@ -220,8 +269,9 @@ class TK_Interface:
         self.e_pos_meas_bins.delete(0, tkinter.END)
         self.e_num_samples.delete(0, tkinter.END)
 
-        self.dof_comp.set(1)
+        self.dof_comp.set(0)
         self.e_min_pos.insert(tkinter.END, '0')
+        self.e_min_pos.config(state='disable')
         self.e_max_pos.insert(tkinter.END, '50')
         self.e_num_positions.insert(tkinter.END, '126')
         self.e_min_vel.insert(tkinter.END, '0')
@@ -237,13 +287,14 @@ class TK_Interface:
         self.e_motion_bins.insert(tkinter.END, '3')
         self.e_pos_meas_bins.insert(tkinter.END, '1')
         self.e_num_samples.insert(tkinter.END, '1')
+        self.e_t_max.insert(tkinter.END, '5')
         self.c_sample_w_motion_noise = 0
         self.c_sample_w_pos_meas_noise = 0
 
         #self.init_pos = float(self.e_max_pos.get()) # TRYING TO FIX SLIDER RESET
         #self.init_vel = float(self.e_min_vel.get())
 
-        self.update_gui('dummy_event')
+        self.update_gui()
 
     def compute_vi(self):
 
@@ -275,7 +326,7 @@ class TK_Interface:
 
 
             #re-normalise border at bottom
-            if self.dof_comp.get() == 1: # z mode
+            if self.dof_comp.get() == 0: # z mode
                 for j in range(0, self.motion_centre_idx + i):
                     # bottom-right (final state border)
                     start_j = self.num_states+ (j - self.motion_centre_idx - i) * self.num_actions
@@ -285,17 +336,14 @@ class TK_Interface:
                     # bottom-right (final state-rolled over)
                     transitions[i,start_j:self.num_states, i+j*self.num_actions] = 0
 
-            print(self.dof_comp.get())
-
-            '''
-            elif self.dof_comp == 2: # x-y mode
+            elif self.dof_comp.get() == 1: # x-y mode
                 for j in range(0, self.motion_centre_idx + i):
                     start_j = self.num_states+ (j - self.motion_centre_idx - i) * self.num_actions
                     # mirror rollover terms about rhs border of matrix
                     transitions[i, start_j:self.num_states, (i-(j+2) * self.num_actions) % self.num_states] += \
                         transitions[i, start_j:self.num_states, i + j * self.num_actions]
                     transitions[i, start_j:self.num_states, i + j * self.num_actions] = 0
-            '''
+
 
         # reward matrix
 
@@ -372,18 +420,31 @@ class TK_Interface:
             # populate trajectories
             at_target = False
             traj_end = False
+
             while traj_end is False:
 
-                if (state[0] == 0 and at_target == False):
-                    self.t_touch.append(t)
-                    self.v_touch.append(state[1]*self.vel_res)
-                    at_target = True
-                    traj_end = True
+                # z dof mode
+                if self.dof_comp.get() == 0:
+                    if state[0] == 0:
+                        self.t_touch.append(t)
+                        self.v_touch.append(state[1]*self.vel_res)
+                        at_target = True
+                        traj_end = True
 
-                if (self.sample_w_motion_noise.get() == 0 and self.sample_w_pos_meas_noise.get() == 0 and prev_state == state):
-                    self.t_touch.append(0)
-                    self.v_touch.append(0)
-                    traj_end = True
+                    if (self.sample_w_motion_noise.get() == 0 and self.sample_w_pos_meas_noise.get() == 0 \
+                                and prev_state == state and at_target == False):
+                        self.t_touch.append(0)
+                        self.v_touch.append(0)
+                        traj_end = True
+
+                # x-y dof mode
+                if self.dof_comp.get() == 1:
+                    if t > self.t_max:
+                        self.t_touch.append(0)
+                        self.v_touch.append(0)
+                        traj_end = True
+
+
 
                 # measurement
                 if self.sample_w_pos_meas_noise.get() == 1:
@@ -391,14 +452,26 @@ class TK_Interface:
                 else:
                     pos_meas = state[0]
 
-                if pos_meas < float(self.e_min_pos.get())/self.pos_res:
-                    pos_meas = float(self.e_min_pos.get())/self.pos_res
-                elif pos_meas > float(self.e_max_pos.get())/self.pos_res:
-                    pos_meas = float(self.e_max_pos.get())/self.pos_res
+                # clip measurements at borders
+                if self.dof_comp.get() == 0:
+                    if pos_meas < float(self.e_min_pos.get())/self.pos_res:
+                        pos_meas = float(self.e_min_pos.get())/self.pos_res
+                    elif pos_meas > float(self.e_max_pos.get())/self.pos_res:
+                        pos_meas = float(self.e_max_pos.get())/self.pos_res
+                elif self.dof_comp.get() == 1:
+                    if pos_meas > float(self.e_max_pos.get())/self.pos_res:
+                        pos_meas = float(self.e_max_pos.get()) / self.pos_res
+                    elif pos_meas < -float(self.e_max_pos.get())/self.pos_res:
+                        pos_meas = -float(self.e_max_pos.get()) / self.pos_res
                 state_meas = [pos_meas, state[1]]
 
-                target_vel = self.vi.policy[int(self.num_states - state_meas[0] * self.num_actions - self.num_actions + state_meas[1])]
+                target_vel = self.vi.policy[int(self.num_states - abs(state_meas[0]) * self.num_actions - self.num_actions + abs(state_meas[1]))]
 
+                # correct velocity sign
+                if pos_meas < 0:
+                    target_vel *= -1
+
+                # update raw trajectory arrays
                 self.pos_raw[i].append(state[0]) # current pos
                 self.pos_meas_raw[i].append(state_meas[0]) # current measured pos
                 self.vel_raw[i].append(state[1]) # current velocity
@@ -412,10 +485,18 @@ class TK_Interface:
                 else:
                     new_pos = state[0] - target_vel
 
-                if new_pos < float(self.e_min_pos.get())/self.pos_res:
-                    new_pos = float(self.e_min_pos.get())/self.pos_res
-                elif new_pos > float(self.e_max_pos.get())/self.pos_res:
-                    new_pos = float(self.e_max_pos.get())/self.pos_res
+                # new position border clipping
+                if self.dof_comp.get() == 0:
+                    if new_pos < float(self.e_min_pos.get())/self.pos_res:
+                        new_pos = float(self.e_min_pos.get())/self.pos_res
+                    elif new_pos > float(self.e_max_pos.get())/self.pos_res:
+                        new_pos = float(self.e_max_pos.get())/self.pos_res
+                elif self.dof_comp.get() == 1:
+                    if new_pos > float(self.e_max_pos.get())/self.pos_res:
+                        new_pos = float(self.e_max_pos.get())/self.pos_res
+                    elif new_pos < -float(self.e_max_pos.get())/self.pos_res:
+                        new_pos = -float(self.e_max_pos.get()) / self.pos_res
+
                 prev_state = state
                 state = [new_pos, target_vel]
 
@@ -503,7 +584,7 @@ class TK_Interface:
         column += 1
 
         self.dof_comp = tkinter.IntVar()
-        self.r_dof_comp_z = tkinter.Radiobutton(f_tb, variable=self.dof_comp, value=1)
+        self.r_dof_comp_z = tkinter.Radiobutton(f_tb, variable=self.dof_comp, value=0)
         self.r_dof_comp_z.grid(row=row, column=column)
 
         column += 1
@@ -513,7 +594,7 @@ class TK_Interface:
 
         column += 1
 
-        self.r_dof_comp_xy = tkinter.Radiobutton(f_tb, variable=self.dof_comp, value=2)
+        self.r_dof_comp_xy = tkinter.Radiobutton(f_tb, variable=self.dof_comp, value=1)
         self.r_dof_comp_xy.grid(row=row, column=column)
 
         column += 1
@@ -523,7 +604,7 @@ class TK_Interface:
 
         column += 1
 
-        self.r_dof_comp_ang = tkinter.Radiobutton(f_tb, variable=self.dof_comp, value=3)
+        self.r_dof_comp_ang = tkinter.Radiobutton(f_tb, variable=self.dof_comp, value=2)
         self.r_dof_comp_ang.grid(row=row, column=column)
 
         row += 1
@@ -761,30 +842,8 @@ class TK_Interface:
         self.e_pos_meas_bins = tkinter.Entry(f_tb, width=5)
         self.e_pos_meas_bins.grid(row=row, column=column)
 
-        column += 1
-
-        l_sample_w_motion_noise = tkinter.Label(f_tb, text='sample with motion noise?')
-        l_sample_w_motion_noise.grid(row=row, column=column)
-
-        column += 1
-
-        self.sample_w_motion_noise = tkinter.IntVar()
-        self.c_sample_w_motion_noise = tkinter.Checkbutton(f_tb,text="yes",variable=self.sample_w_motion_noise)
-        self.c_sample_w_motion_noise.grid(row=row, column=column)
-
-        column += 1
-
-        l_sample_w_pos_meas_noise = tkinter.Label(f_tb, text='sample with pos meas noise?')
-        l_sample_w_pos_meas_noise.grid(row=row, column=column)
-
-        column += 1
-
-        self.sample_w_pos_meas_noise = tkinter.IntVar()
-        self.c_sample_w_pos_meas_noise = tkinter.Checkbutton(f_tb,text="yes",variable=self.sample_w_pos_meas_noise)
-        self.c_sample_w_pos_meas_noise.grid(row=row, column=column)
-
         row += 1
-        column -= 7
+        column -= 3
 
         # Plotting Options #
         #------------------#
@@ -805,8 +864,40 @@ class TK_Interface:
         self.e_num_samples = tkinter.Entry(f_tb, width=5)
         self.e_num_samples.grid(row=row, column=column)
 
+        column += 1
+
+        self.l_t_max = tkinter.Label(f_tb, text='t max')
+        self.l_t_max.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_t_max = tkinter.Entry(f_tb, width=5)
+        self.e_t_max.grid(row=row, column=column)
+
+        column += 1
+
+        l_sample_w_motion_noise = tkinter.Label(f_tb, text='sample with motion noise?')
+        l_sample_w_motion_noise.grid(row=row, column=column)
+
+        column += 1
+
+        self.sample_w_motion_noise = tkinter.IntVar()
+        self.c_sample_w_motion_noise = tkinter.Checkbutton(f_tb, text="yes", variable=self.sample_w_motion_noise)
+        self.c_sample_w_motion_noise.grid(row=row, column=column)
+
+        column += 1
+
+        l_sample_w_pos_meas_noise = tkinter.Label(f_tb, text='sample with pos meas noise?')
+        l_sample_w_pos_meas_noise.grid(row=row, column=column)
+
+        column += 1
+
+        self.sample_w_pos_meas_noise = tkinter.IntVar()
+        self.c_sample_w_pos_meas_noise = tkinter.Checkbutton(f_tb, text="yes", variable=self.sample_w_pos_meas_noise)
+        self.c_sample_w_pos_meas_noise.grid(row=row, column=column)
+
         row += 1
-        column -= 1
+        column -= 7
 
         # Initial State #
         #---------------#
@@ -914,6 +1005,10 @@ class TK_Interface:
         # set up sliders for plot updates
         self.s_init_pos.config(command = lambda v: self.S_init_pos(v))
         self.s_init_vel.config(command = lambda v: self.S_init_vel(v))
+        # set up mode selector for gui updates
+        self.r_dof_comp_z.config(command = self.update_gui)
+        self.r_dof_comp_xy.config(command = self.update_gui)
+        self.r_dof_comp_ang.config(command = self.update_gui)
 
         # start mainloop #
         #----------------#
