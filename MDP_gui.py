@@ -52,9 +52,9 @@ class TK_Interface:
             min_pos = float(self.e_min_pos.get())
             max_pos = float(self.e_max_pos.get())
             mid_pos = (max_pos + min_pos) / 2
-            y_min = mid_pos - (mid_pos - min_pos)
-            y_max = mid_pos + (max_pos - mid_pos) * 1.1
-            self.pos_graph.set_ylim(y_min, y_max)
+            pos_y_min = mid_pos - (mid_pos - min_pos)
+            pos_y_max = mid_pos + (max_pos - mid_pos) * 1.1
+            self.pos_graph.set_ylim(pos_y_min, pos_y_max)
 
             # velocity graph
             self.vel_graph.cla()
@@ -63,9 +63,9 @@ class TK_Interface:
             min_vel = float(self.e_min_vel.get())
             max_vel = float(self.e_max_vel.get())
             mid_vel = (max_vel + min_vel) / 2
-            y_min = mid_vel - (mid_vel - min_vel)
-            y_max = mid_vel + (max_vel - mid_vel) * 1.1
-            self.vel_graph.set_ylim(y_min, y_max)
+            vel_y_min = mid_vel - (mid_vel - min_vel)
+            vel_y_max = mid_vel + (max_vel - mid_vel) * 1.1
+            self.vel_graph.set_ylim(vel_y_min, vel_y_max)
 
             # acceleration graph
             self.acc_graph.cla()
@@ -75,9 +75,9 @@ class TK_Interface:
             min_acc = min([min(sublist) for sublist in self.acc])
             max_acc = max([max(sublist) for sublist in self.acc])
             mid_acc = (max_acc + min_acc) / 2
-            y_min = mid_acc - (mid_acc - min_acc) * 1.1
-            y_max = mid_acc + (max_acc - mid_acc) * 1.1
-            self.acc_graph.set_ylim(y_min, y_max)
+            acc_y_min = mid_acc - (mid_acc - min_acc) * 1.1
+            acc_y_max = mid_acc + (max_acc - mid_acc) * 1.1
+            self.acc_graph.set_ylim(acc_y_min, acc_y_max)
             self.acc_x_axis = self.acc_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
 
             # policy map
@@ -109,14 +109,14 @@ class TK_Interface:
 
                 self.pos_meas_lines.append(self.pos_graph.plot(self.time[i], self.pos_meas[i], 'm', marker='x')[0])
                 self.pos_lines.append(self.pos_graph.plot(self.time[i], self.pos[i], 'b', marker='o', markeredgecolor='w')[0])
-                self.pos_t_lines.append(self.pos_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([y_min, y_max]), 'r--')[0])
+                self.pos_t_lines.append(self.pos_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([pos_y_min, pos_y_max]), 'r--')[0])
 
                 self.vel_lines.append(self.vel_graph.plot(self.time[i], self.vel[i], 'r', marker='o', markeredgecolor='w')[0])
-                self.vel_t_lines.append(self.vel_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([y_min, y_max]), 'r--')[0])
+                self.vel_t_lines.append(self.vel_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([vel_y_min, vel_y_max]), 'r--')[0])
                 self.vel_v_lines.append(self.vel_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([self.v_touch[i], self.v_touch[i]]), 'r--')[0])
 
                 self.acc_lines.append(self.acc_graph.plot(self.time[i], self.acc[i], 'g', marker='o', markeredgecolor='w')[0])
-                self.acc_t_lines.append(self.acc_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([y_min, y_max]), 'r--')[0])
+                self.acc_t_lines.append(self.acc_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([acc_y_min, acc_y_max]), 'r--')[0])
 
                 self.policy_lines.append(self.policy_graph.plot(self.vel[i], self.pos[i], color='k', linestyle='-', linewidth=3, marker='o', markeredgecolor='w')[0])
 
@@ -203,12 +203,12 @@ class TK_Interface:
 
     def reset_gui(self):
 
-        self.e_min_vel.delete(0, tkinter.END)
-        self.e_max_vel.delete(0, tkinter.END)
-        self.e_num_actions.delete(0, tkinter.END)
         self.e_min_pos.delete(0, tkinter.END)
         self.e_max_pos.delete(0, tkinter.END)
         self.e_num_positions.delete(0, tkinter.END)
+        self.e_min_vel.delete(0, tkinter.END)
+        self.e_max_vel.delete(0, tkinter.END)
+        self.e_num_actions.delete(0, tkinter.END)
         self.e_discount.delete(0, tkinter.END)
         self.e_epsilon.delete(0, tkinter.END)
         self.e_max_iter.delete(0, tkinter.END)
@@ -220,13 +220,13 @@ class TK_Interface:
         self.e_pos_meas_bins.delete(0, tkinter.END)
         self.e_num_samples.delete(0, tkinter.END)
 
-
-        self.e_min_vel.insert(tkinter.END, '0')
-        self.e_max_vel.insert(tkinter.END, '20')
-        self.e_num_actions.insert(tkinter.END, '6')
+        self.dof_comp = 0
         self.e_min_pos.insert(tkinter.END, '0')
         self.e_max_pos.insert(tkinter.END, '50')
         self.e_num_positions.insert(tkinter.END, '126')
+        self.e_min_vel.insert(tkinter.END, '0')
+        self.e_max_vel.insert(tkinter.END, '20')
+        self.e_num_actions.insert(tkinter.END, '6')
         self.e_discount.insert(tkinter.END, '0.99')
         self.e_epsilon.insert(tkinter.END, '0.01')
         self.e_max_iter.insert(tkinter.END, '1000')
@@ -234,8 +234,8 @@ class TK_Interface:
         self.e_vel_factor.insert(tkinter.END, '1')
         self.e_vel_den_ratio.insert(tkinter.END, '0.05')
         self.e_acc_factor.insert(tkinter.END, '1')
-        self.e_motion_bins.insert(tkinter.END, '1')
-        self.e_pos_meas_bins.insert(tkinter.END, '3')
+        self.e_motion_bins.insert(tkinter.END, '3')
+        self.e_pos_meas_bins.insert(tkinter.END, '1')
         self.e_num_samples.insert(tkinter.END, '1')
         self.c_sample_w_motion_noise = 0
         self.c_sample_w_pos_meas_noise = 0
@@ -251,14 +251,14 @@ class TK_Interface:
         transitions = numpy.zeros((self.num_actions, self.num_states, self.num_states))
         no_vel_trans = numpy.zeros((self.num_states, self.num_states))
 
-        # setup base zero velocity transition matrix, for i = 0
+        # setup base zero velocity transition matrix, for vel = 0
         for i in range(0, int(self.num_states / self.num_actions)): # iterate over pos states
             for j in range(0,self.num_motion_bins): # iterate over bins
                 bin_range = (j - self.motion_centre_idx) * self.num_actions
                 horizontal_coord = i * self.num_actions + bin_range
                 no_vel_trans[i * self.num_actions:i * self.num_actions + self.num_actions, horizontal_coord % self.num_states] = numpy.full(self.num_actions, self.crude_motion_hist[j])
 
-        # setup full transition matrix based on position state
+        # set up full transition matrix based on position state
         for i in range(0, self.num_actions):
 
             # roll entire state
@@ -275,14 +275,25 @@ class TK_Interface:
 
 
             #re-normalise border at bottom
-            for j in range(0, self.motion_centre_idx + i):
-                # bottom-right (final state border)
-                start_j = self.num_states+ (j - self.motion_centre_idx - i) * self.num_actions
-                end_j = self.num_states+ (j + 1 - self.motion_centre_idx - i) * self.num_actions
-                transitions[i,start_j:end_j,self.num_states-self.num_actions+i] += numpy.sum(self.crude_motion_hist[0:j + 1])\
-                                                                if j<float(self.e_motion_bins.get()) else 1
-                # bottom-right (final state-rolled over)
-                transitions[i,start_j:self.num_states, i+j*self.num_actions] = 0
+            if self.dof_comp == 0: # z mode
+                for j in range(0, self.motion_centre_idx + i):
+                    # bottom-right (final state border)
+                    start_j = self.num_states+ (j - self.motion_centre_idx - i) * self.num_actions
+                    end_j = self.num_states+ (j + 1 - self.motion_centre_idx - i) * self.num_actions
+                    transitions[i,start_j:end_j,self.num_states-self.num_actions+i] += numpy.sum(self.crude_motion_hist[0:j + 1])\
+                                                                    if j<float(self.e_motion_bins.get()) else 1
+                    # bottom-right (final state-rolled over)
+                    transitions[i,start_j:self.num_states, i+j*self.num_actions] = 0
+
+            '''
+            elif self.dof_comp == 1: # x-y mode
+                for j in range(0, self.motion_centre_idx + i):
+                    start_j = self.num_states+ (j - self.motion_centre_idx - i) * self.num_actions
+                    # mirror rollover terms about rhs border of matrix
+                    transitions[i, start_j:self.num_states, (i-(j+2) * self.num_actions) % self.num_states] += \
+                        transitions[i, start_j:self.num_states, i + j * self.num_actions]
+                    transitions[i, start_j:self.num_states, i + j * self.num_actions] = 0
+            '''
 
         # reward matrix
 
@@ -352,6 +363,7 @@ class TK_Interface:
         for i in range(0,int(self.e_num_samples.get())):
 
             # initialise state
+            prev_state = [numpy.nan,numpy.nan]
             state = [int(float(self.s_init_pos.get()) / self.pos_res), int(float(self.s_init_vel.get()) / self.vel_res)]
             t = 0
 
@@ -363,8 +375,12 @@ class TK_Interface:
                 if (state[0] == 0 and at_target == False):
                     self.t_touch.append(t)
                     self.v_touch.append(state[1]*self.vel_res)
-                    print(state[1]*self.vel_res)
                     at_target = True
+                    traj_end = True
+
+                if (self.sample_w_motion_noise.get() == 0 and self.sample_w_pos_meas_noise.get() == 0 and prev_state == state):
+                    self.t_touch.append(0)
+                    self.v_touch.append(0)
                     traj_end = True
 
                 # measurement
@@ -398,6 +414,7 @@ class TK_Interface:
                     new_pos = float(self.e_min_pos.get())/self.pos_res
                 elif new_pos > float(self.e_max_pos.get())/self.pos_res:
                     new_pos = float(self.e_max_pos.get())/self.pos_res
+                prev_state = state
                 state = [new_pos, target_vel]
 
             # rescale trajectories to correct dimensions
@@ -467,56 +484,48 @@ class TK_Interface:
         row = 0
         column = 0
 
-        # Velocity Parameters #
-        #---------------------#
+        # DOF Component #
+        #---------------#
 
         column += 3
 
-        l_vel = tkinter.Label(f_tb, text='velocity Parameters')
-        l_vel.grid(row=row, column=column)
+        l_dof_comp = tkinter.Label(f_tb, text='DOF Component')
+        l_dof_comp.grid(row=row, column=column)
 
         row += 1
         column -= 3
 
-        l_min_vel = tkinter.Label(f_tb, text='min vel (cm/s)')
-        l_min_vel.grid(row=row, column=column)
+        l_z = tkinter.Label(f_tb, text='z:')
+        l_z.grid(row=row, column=column)
 
         column += 1
 
-        self.e_min_vel = tkinter.Entry(f_tb)
-        self.e_min_vel.grid(row=row, column=column)
-        self.e_min_vel.bind("<FocusOut>", self.update_gui)
+        self.dof_comp = tkinter.IntVar()
+        self.r_dof_comp_z = tkinter.Radiobutton(f_tb,variable=self.dof_comp, value=0)
+        self.r_dof_comp_z.grid(row=row, column=column)
 
         column += 1
 
-        l_max_vel = tkinter.Label(f_tb, text='max vel (cm/s)')
-        l_max_vel.grid(row=row, column=column)
+        l_xy = tkinter.Label(f_tb, text='x-y:')
+        l_xy.grid(row=row, column=column)
 
         column += 1
 
-        self.e_max_vel = tkinter.Entry(f_tb)
-        self.e_max_vel.grid(row=row, column=column)
-        self.e_max_vel.bind("<FocusOut>", self.update_gui)
+        self.r_dof_comp_xy = tkinter.Radiobutton(f_tb,variable=self.dof_comp, value=1)
+        self.r_dof_comp_xy.grid(row=row, column=column)
 
         column += 1
 
-        l_num_actions = tkinter.Label(f_tb, text='num actions')
-        l_num_actions.grid(row=row, column=column)
+        l_ang = tkinter.Label(f_tb, text='ang:')
+        l_ang.grid(row=row, column=column)
 
         column += 1
 
-        self.e_num_actions = tkinter.Entry(f_tb)
-        self.e_num_actions.grid(row=row, column=column)
-        self.e_num_actions.bind("<FocusOut>", self.update_gui)
-
-        column += 1
-
-        self.sv_vel_res = tkinter.StringVar()
-        l_vel_res = tkinter.Label(f_tb, textvariable=self.sv_vel_res)
-        l_vel_res.grid(row=row, column=column)
+        self.r_dof_comp_ang = tkinter.Radiobutton(f_tb,variable=self.dof_comp, value=2)
+        self.r_dof_comp_ang.grid(row=row, column=column)
 
         row += 1
-        column -= 6
+        column -= 5
 
         # Position Parameters #
         #---------------------#
@@ -534,7 +543,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_min_pos = tkinter.Entry(f_tb)
+        self.e_min_pos = tkinter.Entry(f_tb, width=5)
         self.e_min_pos.grid(row=row, column=column)
         self.e_min_pos.bind("<FocusOut>", self.update_gui)
 
@@ -545,7 +554,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_max_pos = tkinter.Entry(f_tb)
+        self.e_max_pos = tkinter.Entry(f_tb, width=5)
         self.e_max_pos.grid(row=row, column=column)
         self.e_max_pos.bind("<FocusOut>", self.update_gui)
 
@@ -556,7 +565,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_num_positions = tkinter.Entry(f_tb)
+        self.e_num_positions = tkinter.Entry(f_tb, width=5)
         self.e_num_positions.grid(row=row, column=column)
         self.e_num_positions.bind("<FocusOut>", self.update_gui)
 
@@ -565,6 +574,57 @@ class TK_Interface:
         self.sv_pos_res = tkinter.StringVar()
         l_pos_res = tkinter.Label(f_tb, textvariable=self.sv_pos_res)
         l_pos_res.grid(row=row, column=column)
+
+        row += 1
+        column -= 6
+
+        # Velocity Parameters #
+        #---------------------#
+
+        column += 3
+
+        l_vel = tkinter.Label(f_tb, text='velocity Parameters')
+        l_vel.grid(row=row, column=column)
+
+        row += 1
+        column -= 3
+
+        l_min_vel = tkinter.Label(f_tb, text='min vel (cm/s)')
+        l_min_vel.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_min_vel = tkinter.Entry(f_tb, width=5)
+        self.e_min_vel.grid(row=row, column=column)
+        self.e_min_vel.bind("<FocusOut>", self.update_gui)
+
+        column += 1
+
+        l_max_vel = tkinter.Label(f_tb, text='max vel (cm/s)')
+        l_max_vel.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_max_vel = tkinter.Entry(f_tb, width=5)
+        self.e_max_vel.grid(row=row, column=column)
+        self.e_max_vel.bind("<FocusOut>", self.update_gui)
+
+        column += 1
+
+        l_num_actions = tkinter.Label(f_tb, text='num actions')
+        l_num_actions.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_num_actions = tkinter.Entry(f_tb, width=5)
+        self.e_num_actions.grid(row=row, column=column)
+        self.e_num_actions.bind("<FocusOut>", self.update_gui)
+
+        column += 1
+
+        self.sv_vel_res = tkinter.StringVar()
+        l_vel_res = tkinter.Label(f_tb, textvariable=self.sv_vel_res)
+        l_vel_res.grid(row=row, column=column)
 
         row += 1
         column -= 6
@@ -585,7 +645,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_discount = tkinter.Entry(f_tb)
+        self.e_discount = tkinter.Entry(f_tb, width=5)
         self.e_discount.grid(row=row, column=column)
 
         column += 1
@@ -595,7 +655,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_epsilon = tkinter.Entry(f_tb)
+        self.e_epsilon = tkinter.Entry(f_tb, width=5)
         self.e_epsilon.grid(row=row, column=column)
 
         column += 1
@@ -605,7 +665,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_max_iter = tkinter.Entry(f_tb)
+        self.e_max_iter = tkinter.Entry(f_tb, width=5)
         self.e_max_iter.grid(row=row, column=column)
 
         column += 1
@@ -634,7 +694,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_dist_factor = tkinter.Entry(f_tb)
+        self.e_dist_factor = tkinter.Entry(f_tb, width=5)
         self.e_dist_factor.grid(row=row, column=column)
 
         column += 1
@@ -644,7 +704,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_vel_factor = tkinter.Entry(f_tb)
+        self.e_vel_factor = tkinter.Entry(f_tb, width=5)
         self.e_vel_factor.grid(row=row, column=column)
 
         column += 1
@@ -654,7 +714,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_vel_den_ratio = tkinter.Entry(f_tb)
+        self.e_vel_den_ratio = tkinter.Entry(f_tb, width=5)
         self.e_vel_den_ratio.grid(row=row, column=column)
 
         column += 1
@@ -664,7 +724,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_acc_factor = tkinter.Entry(f_tb)
+        self.e_acc_factor = tkinter.Entry(f_tb, width=5)
         self.e_acc_factor.grid(row=row, column=column)
 
         row += 1
@@ -686,7 +746,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_motion_bins = tkinter.Entry(f_tb)
+        self.e_motion_bins = tkinter.Entry(f_tb, width=5)
         self.e_motion_bins.grid(row=row, column=column)
 
         column += 1
@@ -696,7 +756,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_pos_meas_bins = tkinter.Entry(f_tb)
+        self.e_pos_meas_bins = tkinter.Entry(f_tb, width=5)
         self.e_pos_meas_bins.grid(row=row, column=column)
 
         column += 1
@@ -740,7 +800,7 @@ class TK_Interface:
 
         column += 1
 
-        self.e_num_samples = tkinter.Entry(f_tb)
+        self.e_num_samples = tkinter.Entry(f_tb, width=5)
         self.e_num_samples.grid(row=row, column=column)
 
         row += 1
