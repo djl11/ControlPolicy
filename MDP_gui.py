@@ -96,6 +96,7 @@ class TK_Interface:
 
             # init traj arrays
             self.pos_lines = []
+            self.pos_meas_lines = []
             self.pos_t_lines = []
             self.vel_lines = []
             self.vel_t_lines = []
@@ -105,13 +106,14 @@ class TK_Interface:
 
             for i in range(0,int(self.e_num_samples.get())):
 
+                self.pos_meas_lines.append(self.pos_graph.plot(self.time[i], self.pos_meas[i], 'm', marker='x')[0])
                 self.pos_lines.append(self.pos_graph.plot(self.time[i], self.pos[i], 'b', marker='o', markeredgecolor='w')[0])
                 self.pos_t_lines.append(self.pos_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([y_min, y_max]), 'r--')[0])
 
-                self.vel_lines.append(self.vel_graph.plot(self.time[i], self.vel[i], 'g', marker='o', markeredgecolor='w')[0])
+                self.vel_lines.append(self.vel_graph.plot(self.time[i], self.vel[i], 'r', marker='o', markeredgecolor='w')[0])
                 self.vel_t_lines.append(self.vel_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([y_min, y_max]), 'r--')[0])
 
-                self.acc_lines.append(self.acc_graph.plot(self.time[i], self.acc[i], 'r', marker='o', markeredgecolor='w')[0])
+                self.acc_lines.append(self.acc_graph.plot(self.time[i], self.acc[i], 'g', marker='o', markeredgecolor='w')[0])
                 self.acc_t_lines.append(self.acc_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([y_min, y_max]), 'r--')[0])
 
                 self.policy_lines.append(self.policy_graph.plot(self.vel[i], self.pos[i], color='k', linestyle='-', linewidth=3, marker='o', markeredgecolor='w')[0])
@@ -131,6 +133,8 @@ class TK_Interface:
 
                 self.pos_lines[i].set_xdata(self.time[i])
                 self.pos_lines[i].set_ydata(self.pos[i])
+                self.pos_meas_lines[i].set_xdata(self.time[i])
+                self.pos_meas_lines[i].set_ydata(self.pos_meas[i])
                 self.pos_t_lines[i].set_xdata(numpy.array([self.t_touch[i], self.t_touch[i]]))
 
                 self.vel_lines[i].set_xdata(self.time[i])
@@ -185,6 +189,9 @@ class TK_Interface:
         self.crude_pos_meas_hist = self.crude_pos_meas_hist[1::2]
         self.crude_pos_meas_hist = self.crude_pos_meas_hist / numpy.sum(self.crude_pos_meas_hist)
 
+        self.motion_centre_idx = int(self.num_motion_bins / 2)
+        self.pos_meas_centre_idx = int(self.num_pos_meas_bins / 2)
+
 
 
         self.tk_root.update_idletasks()
@@ -225,6 +232,8 @@ class TK_Interface:
         self.e_motion_bins.insert(tkinter.END, '1')
         self.e_pos_meas_bins.insert(tkinter.END, '3')
         self.e_num_samples.insert(tkinter.END, '1')
+        self.c_sample_w_motion_noise = 0
+        self.c_sample_w_pos_meas_noise = 0
 
         #self.init_pos = float(self.e_max_pos.get()) # TRYING TO FIX SLIDER RESET
         #self.init_vel = float(self.e_min_vel.get())
@@ -236,9 +245,6 @@ class TK_Interface:
         # transition matrix
         transitions = numpy.zeros((self.num_actions, self.num_states, self.num_states))
         no_vel_trans = numpy.zeros((self.num_states, self.num_states))
-
-        self.motion_centre_idx = int(self.num_motion_bins / 2)
-        self.pos_meas_centre_idx = int(self.num_pos_meas_bins / 2)
 
         # setup base zero velocity transition matrix, for i = 0
         for i in range(0, int(self.num_states / self.num_actions)): # iterate over pos states
@@ -325,12 +331,14 @@ class TK_Interface:
 
         # initialise trajectories for plotting
         self.pos_raw = [[] for i in range(int(self.e_num_samples.get()))]
+        self.pos_meas_raw = [[] for i in range(int(self.e_num_samples.get()))]
         self.vel_raw = [[] for i in range(int(self.e_num_samples.get()))]
         self.acc_raw = [[] for i in range(int(self.e_num_samples.get()))]
         self.time = [[] for i in range(int(self.e_num_samples.get()))]
         self.t_touch = []
 
         self.pos = [[] for i in range(int(self.e_num_samples.get()))]
+        self.pos_meas = [[] for i in range(int(self.e_num_samples.get()))]
         self.vel = [[] for i in range(int(self.e_num_samples.get()))]
         self.acc = [[] for i in range(int(self.e_num_samples.get()))]
 
@@ -352,26 +360,41 @@ class TK_Interface:
                     traj_end = True
 
                 # measurement
-                state_meas = [state[0] + numpy.random.choice(numpy.linspace(-self.motion_centre_idx, self.motion_centre_idx, self.num_motion_bins), 1, p=self.crude_motion_hist)]
+                if self.sample_w_pos_meas_noise.get() == 1:
+                    pos_meas = state[0] + numpy.random.choice(numpy.linspace(-self.pos_meas_centre_idx, self.pos_meas_centre_idx, self.num_pos_meas_bins), 1, p=self.crude_pos_meas_hist)
+                else:
+                    pos_meas = state[0]
 
-                target_vel = self.vi.policy[int(self.num_states - state[0] * self.num_actions - self.num_actions + state[1])]
+                if pos_meas < float(self.e_min_pos.get())/self.pos_res:
+                    pos_meas = float(self.e_min_pos.get())/self.pos_res
+                elif pos_meas > float(self.e_max_pos.get())/self.pos_res:
+                    pos_meas = float(self.e_max_pos.get())/self.pos_res
+                state_meas = [pos_meas, state[1]]
 
-                self.pos_raw[i].append(state[0]) # current state
+                target_vel = self.vi.policy[int(self.num_states - state_meas[0] * self.num_actions - self.num_actions + state_meas[1])]
+
+                self.pos_raw[i].append(state[0]) # current pos
+                self.pos_meas_raw[i].append(state_meas[0]) # current measured pos
                 self.vel_raw[i].append(state[1]) # current velocity
                 self.acc_raw[i].append(target_vel-state[1]) # current accel
                 self.time[i].append(t)
                 t += time_step
 
                 # motion noise
-                new_pos = state[0] - target_vel + numpy.random.choice(numpy.linspace(-self.motion_centre_idx, self.motion_centre_idx, self.num_motion_bins), 1, p=self.crude_motion_hist)
+                if self.sample_w_motion_noise.get() == 1:
+                    new_pos = state[0] - target_vel + numpy.random.choice(numpy.linspace(-self.motion_centre_idx, self.motion_centre_idx, self.num_motion_bins), 1, p=self.crude_motion_hist)
+                else:
+                    new_pos = state[0] - target_vel
+
                 if new_pos < float(self.e_min_pos.get())/self.pos_res:
                     new_pos = float(self.e_min_pos.get())/self.pos_res
                 elif new_pos > float(self.e_max_pos.get())/self.pos_res:
                     new_pos = float(self.e_max_pos.get())/self.pos_res
                 state = [new_pos, target_vel]
 
-                # rescale trajectories to correct dimensions
+            # rescale trajectories to correct dimensions
             self.pos[i] = [j*self.pos_res for j in self.pos_raw[i]]
+            self.pos_meas[i] = [j * self.pos_res for j in self.pos_meas_raw[i]]
             self.vel[i] = [j*self.vel_res for j in self.vel_raw[i]]
             self.acc[i] = [j*self.vel_res*self.control_freq for j in self.acc_raw[i]]
 
@@ -668,8 +691,30 @@ class TK_Interface:
         self.e_pos_meas_bins = tkinter.Entry(f_tb)
         self.e_pos_meas_bins.grid(row=row, column=column)
 
+        column += 1
+
+        l_sample_w_motion_noise = tkinter.Label(f_tb, text='sample with motion noise?')
+        l_sample_w_motion_noise.grid(row=row, column=column)
+
+        column += 1
+
+        self.sample_w_motion_noise = tkinter.IntVar()
+        self.c_sample_w_motion_noise = tkinter.Checkbutton(f_tb,text="yes",variable=self.sample_w_motion_noise)
+        self.c_sample_w_motion_noise.grid(row=row, column=column)
+
+        column += 1
+
+        l_sample_w_pos_meas_noise = tkinter.Label(f_tb, text='sample with pos meas noise?')
+        l_sample_w_pos_meas_noise.grid(row=row, column=column)
+
+        column += 1
+
+        self.sample_w_pos_meas_noise = tkinter.IntVar()
+        self.c_sample_w_pos_meas_noise = tkinter.Checkbutton(f_tb,text="yes",variable=self.sample_w_pos_meas_noise)
+        self.c_sample_w_pos_meas_noise.grid(row=row, column=column)
+
         row += 1
-        column -= 3
+        column -= 7
 
         # Plotting Options #
         #------------------#
