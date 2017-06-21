@@ -57,7 +57,7 @@ class TK_Interface:
                 self.pos_graph.set_xlim(0, max(self.t_touch))
                 self.pos_graph.set_ylim(pos_y_min, pos_y_max)
                 self.pos_x_axis = self.pos_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
-            elif self.dof_comp.get() == 1:
+            elif self.dof_comp.get() == 1 or self.dof_comp.get() == 2:
                 pos_min_est = float((self.num_motion_bins-1)/2+(self.num_pos_meas_bins-1)/2)*self.pos_res
                 self.pos_graph.set_xlim(0, self.t_max)
                 self.pos_graph.set_ylim(-pos_min_est, pos_y_max)
@@ -77,7 +77,7 @@ class TK_Interface:
                 self.vel_graph.set_xlim(0, max(self.t_touch))
                 self.vel_graph.set_ylim(vel_y_min, vel_y_max)
                 self.vel_x_axis = self.vel_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
-            elif self.dof_comp.get() == 1:
+            elif self.dof_comp.get() == 1 or self.dof_comp.get() == 2:
                 self.vel_graph.set_xlim(0, self.t_max)
                 self.vel_graph.set_ylim(-vel_y_max, vel_y_max)
                 self.vel_x_axis = self.vel_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
@@ -96,7 +96,7 @@ class TK_Interface:
                 self.acc_graph.set_xlim(0, max(self.t_touch))
                 self.acc_graph.set_ylim(self.acc_y_min, self.acc_y_max)
                 self.acc_x_axis = self.acc_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
-            elif self.dof_comp.get() == 1:
+            elif self.dof_comp.get() == 1 or self.dof_comp.get() == 2:
                 self.acc_graph.set_xlim(0, self.t_max)
                 self.acc_graph.set_ylim(-self.acc_y_max, self.acc_y_max)
                 self.acc_x_axis = self.acc_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
@@ -148,7 +148,7 @@ class TK_Interface:
                     # max pos required in condition to prevent long trajectories from small starting positions
                     if self.dof_comp.get() == 0:
                         t_term = max(self.t_touch)
-                    elif self.dof_comp.get() == 1:
+                    elif self.dof_comp.get() == 1 or self.dof_comp.get() == 2:
                         t_term = self.t_max
                     self.pos_graph.set_xlim(0, t_term)
                     self.vel_graph.set_xlim(0, t_term)
@@ -272,6 +272,9 @@ class TK_Interface:
             self.e_max_pos.insert(tkinter.END, '180')
             self.e_max_pos.config(state='disable')
 
+            self.e_t_max.config(state='normal')
+            self.t_max = int(self.e_t_max.get())
+
             self.l_min_pos.config(text='min pos (deg)')
             self.l_max_pos.config(text='max pos (deg)')
 
@@ -288,7 +291,6 @@ class TK_Interface:
             self.sv_pos_res.set('      pos res:        %.2f   deg    ' % self.pos_res)
             self.sv_vel_res.set('      vel res:        %.2f   deg/s    ' % self.vel_res)
             self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
-            print(str(self.vel_res) + ' ' + str(self.pos_res) + ' ' + str(self.control_freq))
 
         # initial state
         self.s_init_pos.config(from_=float(self.e_min_pos.get()), to=float(self.e_max_pos.get()), resolution=self.pos_res, tickinterval=(float(self.e_max_pos.get())-float(self.e_min_pos.get()))/5)
@@ -342,7 +344,7 @@ class TK_Interface:
         self.e_pos_meas_bins.delete(0, tkinter.END)
         self.e_num_samples.delete(0, tkinter.END)
 
-        self.dof_comp.set(0)
+        self.dof_comp.set(2)
         self.e_min_pos.insert(tkinter.END, '0')
         self.e_min_pos.config(state='disable')
         self.e_max_pos.insert(tkinter.END, '50')
@@ -518,8 +520,8 @@ class TK_Interface:
                         self.v_touch.append(0)
                         traj_end = True
 
-                # x-y dof mode
-                if self.dof_comp.get() == 1:
+                # x-y and ang dof mode
+                if self.dof_comp.get() == 1 or self.dof_comp.get() == 2:
                     if t > self.t_max:
                         self.t_touch.append(0)
                         self.v_touch.append(0)
@@ -533,15 +535,19 @@ class TK_Interface:
 
                 # clip measurements at borders
                 if self.dof_comp.get() == 0:
-                    if pos_meas < float(self.e_min_pos.get())/self.pos_res:
-                        pos_meas = float(self.e_min_pos.get())/self.pos_res
-                    elif pos_meas > float(self.e_max_pos.get())/self.pos_res:
-                        pos_meas = float(self.e_max_pos.get())/self.pos_res
+                    if pos_meas < int(float(self.e_min_pos.get())/self.pos_res):
+                        pos_meas = int(float(self.e_min_pos.get())/self.pos_res)
+                    elif pos_meas > int(float(self.e_max_pos.get())/self.pos_res):
+                        pos_meas = int(float(self.e_max_pos.get())/self.pos_res)
                 elif self.dof_comp.get() == 1:
-                    if pos_meas > float(self.e_max_pos.get())/self.pos_res:
-                        pos_meas = float(self.e_max_pos.get()) / self.pos_res
-                    elif pos_meas < -float(self.e_max_pos.get())/self.pos_res:
-                        pos_meas = -float(self.e_max_pos.get()) / self.pos_res
+                    if pos_meas > int(float(self.e_max_pos.get())/self.pos_res):
+                        pos_meas = int(float(self.e_max_pos.get()) / self.pos_res)
+                    elif pos_meas < -int(float(self.e_max_pos.get())/self.pos_res):
+                        pos_meas = -int(float(self.e_max_pos.get()) / self.pos_res)
+                elif self.dof_comp.get() == 2:
+                    pos_meas = int((pos_meas+float(self.e_max_pos.get())/self.pos_res) % 2*float(self.e_max_pos.get())/self.pos_res - float(self.e_max_pos.get())/self.pos_res)
+                    if pos_meas == int(-float(self.e_max_pos.get())/self.pos_res):
+                        pos_meas = int(float(self.e_max_pos.get())/self.pos_res) # to favor 180 over -180
                 state_meas = [pos_meas, state[1]]
 
                 target_vel = self.vi.policy[int(self.num_states - abs(state_meas[0]) * self.num_actions - self.num_actions + abs(state_meas[1]))]
@@ -575,6 +581,10 @@ class TK_Interface:
                         new_pos = float(self.e_max_pos.get())/self.pos_res
                     elif new_pos < -float(self.e_max_pos.get())/self.pos_res:
                         new_pos = -float(self.e_max_pos.get()) / self.pos_res
+                elif self.dof_comp.get() == 2:
+                    new_pos = (new_pos+float(self.e_max_pos.get())/self.pos_res) % float(2*self.e_max_pos.get())/self.pos_res + float(self.e_max_pos.get())/self.pos_res
+                    if new_pos == -float(self.e_max_pos.get())/self.pos_res:
+                        new_pos = float(self.e_max_pos.get())/self.pos_res # to favor 180 over -180
 
                 prev_state = state
                 state = [new_pos, target_vel]
