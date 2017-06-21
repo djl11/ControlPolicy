@@ -54,6 +54,13 @@ class TK_Interface:
 
             self.plot_samples = int(self.e_num_samples.get())
 
+            # t term
+            self.t_term = numpy.nan
+            if self.dof_comp.get() == 0:
+                self.t_term = max(self.t_touch)
+            elif self.dof_comp.get() == 1 or self.dof_comp.get() == 2:
+                self.t_term = self.t_max
+
             # position graph
             self.pos_graph.cla()
             if self.dof_comp.get() == 0 or self.dof_comp.get() == 1:
@@ -66,18 +73,14 @@ class TK_Interface:
             pos_y_min = mid_pos - (mid_pos - min_pos)
             pos_y_max = mid_pos + (max_pos - mid_pos) * 1.1
             if self.dof_comp.get() == 0:
-                self.pos_graph.set_xlim(0, max(self.t_touch))
                 self.pos_graph.set_ylim(pos_y_min, pos_y_max)
-                self.pos_x_axis = self.pos_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
             elif self.dof_comp.get() == 1:
                 pos_min_est = float((self.num_motion_bins-1)/2+(self.num_pos_meas_bins-1)/2)*self.pos_res
-                self.pos_graph.set_xlim(0, self.t_max)
                 self.pos_graph.set_ylim(-pos_min_est, pos_y_max)
-                self.pos_x_axis = self.pos_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
             elif self.dof_comp.get() == 2:
-                self.pos_graph.set_xlim(0, self.t_max)
                 self.pos_graph.set_ylim(-pos_y_max, pos_y_max)
-                self.pos_x_axis = self.pos_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
+            self.pos_graph.set_xlim(0, self.t_term)
+            self.pos_x_axis = self.pos_graph.plot(numpy.array([0, self.t_term]), numpy.array([0, 0]), 'k')[0]  # x axis
 
 
             # velocity graph
@@ -92,13 +95,11 @@ class TK_Interface:
             vel_y_min = mid_vel - (mid_vel - min_vel)
             vel_y_max = mid_vel + (max_vel - mid_vel) * 1.1
             if self.dof_comp.get() == 0:
-                self.vel_graph.set_xlim(0, max(self.t_touch))
                 self.vel_graph.set_ylim(vel_y_min, vel_y_max)
-                self.vel_x_axis = self.vel_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
             elif self.dof_comp.get() == 1 or self.dof_comp.get() == 2:
-                self.vel_graph.set_xlim(0, self.t_max)
                 self.vel_graph.set_ylim(-vel_y_max, vel_y_max)
-                self.vel_x_axis = self.vel_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
+            self.vel_graph.set_xlim(0, self.t_term)
+            self.vel_x_axis = self.vel_graph.plot(numpy.array([0, self.t_term]), numpy.array([0, 0]), 'k')[0]  # x axis
 
 
             # acceleration graph
@@ -113,13 +114,20 @@ class TK_Interface:
             self.acc_y_min = mid_acc - (mid_acc - min_acc) * 1.1
             self.acc_y_max = mid_acc + (max_acc - mid_acc) * 1.1
             if self.dof_comp.get() == 0:
-                self.acc_graph.set_xlim(0, max(self.t_touch))
                 self.acc_graph.set_ylim(self.acc_y_min, self.acc_y_max)
-                self.acc_x_axis = self.acc_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
             elif self.dof_comp.get() == 1 or self.dof_comp.get() == 2:
-                self.acc_graph.set_xlim(0, self.t_max)
                 self.acc_graph.set_ylim(-self.acc_y_max, self.acc_y_max)
-                self.acc_x_axis = self.acc_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
+            self.acc_graph.set_xlim(0, self.t_term)
+            self.acc_x_axis = self.acc_graph.plot(numpy.array([0, self.t_term]), numpy.array([0, 0]), 'k')[0]  # x axis
+
+            # rewards
+
+            # mean instant and cum rewards
+            self.mean_cum_rew = 0
+            for i in range(0, int(self.e_num_samples.get())):
+                self.mean_cum_rew += self.cum_rew[-1][i][-1]
+            self.mean_cum_rew /= float(self.e_num_samples.get())
+            self.mean_rew = self.mean_cum_rew / (self.t_term * self.control_freq)
 
             # reward graph
             self.rew_graph.cla()
@@ -129,16 +137,12 @@ class TK_Interface:
             mid_rew = (max_rew + min_rew) / 2
             self.rew_y_min = mid_rew - (mid_rew - min_rew) * 1.1
             self.rew_y_max = mid_rew + (max_rew - mid_rew) * 1.1
-            if self.dof_comp.get() == 0:
-                self.rew_graph.set_xlim(0, max(self.t_touch))
-                self.rew_x_axis = self.rew_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
-            elif self.dof_comp.get() == 1:
-                self.rew_graph.set_xlim(0, self.t_max)
-                self.rew_x_axis = self.rew_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
-            elif self.dof_comp.get() == 2:
-                self.rew_graph.set_xlim(0, self.t_max)
-                self.rew_x_axis = self.rew_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
+            self.rew_graph.set_xlim(0, self.t_term)
+            self.rew_x_axis = self.rew_graph.plot(numpy.array([0, self.t_term]), numpy.array([0, 0]), 'k')[0]  # x axis
             self.rew_graph.set_ylim(self.rew_y_min, self.rew_y_max)
+            text_x = 8 * float(self.t_term) / 10
+            text_y = float(self.rew_y_max - self.rew_y_min) / 10 + float(self.rew_y_min)
+            self.rew_label = self.rew_graph.text(text_x, text_y, 'ave rew: %.2f' % (self.mean_rew))
 
             # cumulative reward graph
             self.cum_rew_graph.cla()
@@ -149,17 +153,12 @@ class TK_Interface:
             mid_cum_rew = (max_cum_rew + min_cum_rew) / 2
             self.cum_rew_y_min = mid_cum_rew - (mid_cum_rew - min_cum_rew) * 1.1
             self.cum_rew_y_max = mid_cum_rew + (max_cum_rew - mid_cum_rew) * 1.1
-            if self.dof_comp.get() == 0:
-                self.cum_rew_graph.set_xlim(0, max(self.t_touch))
-                self.cum_rew_x_axis = self.cum_rew_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
-            elif self.dof_comp.get() == 1:
-                self.cum_rew_graph.set_xlim(0, self.t_max)
-                self.cum_rew_x_axis = self.cum_rew_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
-            elif self.dof_comp.get() == 2:
-                self.cum_rew_graph.set_xlim(0, self.t_max)
-                self.cum_rew_x_axis = self.cum_rew_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
+            self.cum_rew_graph.set_xlim(0, self.t_term)
+            self.cum_rew_x_axis = self.cum_rew_graph.plot(numpy.array([0, self.t_term]), numpy.array([0, 0]), 'k')[0]  # x axis
             self.cum_rew_graph.set_ylim(self.cum_rew_y_min, self.cum_rew_y_max)
-
+            text_x = float(self.t_term) / 25
+            text_y = float(self.cum_rew_y_max - self.cum_rew_y_min) / 10 + float(self.cum_rew_y_min)
+            self.cum_rew_label = self.cum_rew_graph.text(text_x, text_y, 'ave cum-rew: %.2f' % (self.mean_cum_rew))
 
             # policy map
             self.policy_graph.cla()
@@ -220,20 +219,21 @@ class TK_Interface:
         else:
 
             if (self.init_pos == float(self.e_max_pos.get())):
+
                     # max pos required in condition to prevent long trajectories from small starting positions
-                    t_term = numpy.nan
+                    self.t_term = numpy.nan
                     if self.dof_comp.get() == 0:
-                        t_term = max(self.t_touch)
+                        self.t_term = max(self.t_touch)
                     elif self.dof_comp.get() == 1 or self.dof_comp.get() == 2:
-                        t_term = self.t_max
-                    self.pos_graph.set_xlim(0, t_term)
-                    self.vel_graph.set_xlim(0, t_term)
-                    self.acc_graph.set_xlim(0, t_term)
-                    self.rew_graph.set_xlim(0, t_term)
-                    self.cum_rew_graph.set_xlim(0, t_term)
+                        self.t_term = self.t_max
+                    self.pos_graph.set_xlim(0, self.t_term)
+                    self.vel_graph.set_xlim(0, self.t_term)
+                    self.acc_graph.set_xlim(0, self.t_term)
+                    self.rew_graph.set_xlim(0, self.t_term)
+                    self.cum_rew_graph.set_xlim(0, self.t_term)
 
                     # acceleration y limits
-                    self.acc_x_axis.set_xdata(numpy.array([0, t_term]))
+                    self.acc_x_axis.set_xdata(numpy.array([0, self.t_term]))
                     min_acc = min([min(sublist) for sublist in self.acc])
                     max_acc = max([max(sublist) for sublist in self.acc])
                     mid_acc = (max_acc + min_acc) / 2
@@ -242,7 +242,7 @@ class TK_Interface:
                     self.acc_graph.set_ylim(self.acc_y_min, self.acc_y_max)
 
                     # reward y limits
-                    self.rew_x_axis.set_xdata(numpy.array([0, t_term]))
+                    self.rew_x_axis.set_xdata(numpy.array([0, self.t_term]))
                     min_rew = min([min(sublist) for sublist in self.rew[-1]])
                     max_rew = max([max(sublist) for sublist in self.rew[-1]])
                     mid_rew = (max_rew + min_rew) / 2
@@ -251,7 +251,7 @@ class TK_Interface:
                     self.rew_graph.set_ylim(self.rew_y_min, self.rew_y_max)
 
                     # cumulative reward y limits
-                    self.cum_rew_x_axis.set_xdata(numpy.array([0, t_term]))
+                    self.cum_rew_x_axis.set_xdata(numpy.array([0, self.t_term]))
                     min_cum_rew = min([min(sublist) for sublist in self.cum_rew[-1]])
                     max_cum_rew = max([max(sublist) for sublist in self.cum_rew[-1]])
                     mid_cum_rew = (max_cum_rew + min_cum_rew) / 2
@@ -259,8 +259,8 @@ class TK_Interface:
                     self.cum_rew_y_max = mid_cum_rew + (max_cum_rew - mid_cum_rew) * 1.1
                     self.cum_rew_graph.set_ylim(self.cum_rew_y_min, self.cum_rew_y_max)
 
-                    for i in range(0,int(self.e_num_samples.get())):
-                        self.vel_v_lines[i].set_xdata(numpy.array([0, t_term]))
+                    for i in range(0, int(self.e_num_samples.get())):
+                        self.vel_v_lines[i].set_xdata(numpy.array([0, self.t_term]))
 
             # trajectories
 
@@ -294,6 +294,13 @@ class TK_Interface:
                 self.acc_lines[i].set_ydata(self.acc[i])
                 self.acc_t_lines[i].set_xdata(numpy.array([self.t_touch[i], self.t_touch[i]]))
 
+                # re-calculate mean cum and instant rewards
+                self.mean_cum_rew = 0
+                for j in range(0, int(self.e_num_samples.get())):
+                    self.mean_cum_rew += float(self.cum_rew[-1][j][-1])
+                self.mean_cum_rew /= float(self.e_num_samples.get())
+                self.mean_rew = self.mean_cum_rew / (self.t_term*self.control_freq)
+
                 # update rew y lims
                 min_rew = min([min(sublist) for sublist in self.rew[-1]])
                 max_rew = max([max(sublist) for sublist in self.rew[-1]])
@@ -310,6 +317,12 @@ class TK_Interface:
                     self.rew_lines[j][i].set_ydata(self.rew[j][i])
                     self.rew_t_lines[i].set_xdata(numpy.array([self.t_touch[i], self.t_touch[i]]))
 
+                # reward label
+                text_x = 8 * float(self.t_term) / 10
+                text_y = float(self.rew_y_max - self.rew_y_min) / 10 + float(self.rew_y_min)
+                self.rew_label.set_text('av rew: %.2f' % (self.mean_rew))
+                self.rew_label.set_position((text_x, text_y))
+
                 # update cum rew y lims
                 min_cum_rew = min([min(sublist) for sublist in self.cum_rew[-1]])
                 max_cum_rew = max([max(sublist) for sublist in self.cum_rew[-1]])
@@ -325,6 +338,12 @@ class TK_Interface:
                     self.cum_rew_lines[j][i].set_xdata(self.time[i])
                     self.cum_rew_lines[j][i].set_ydata(self.cum_rew[j][i])
                     self.cum_rew_t_lines[i].set_xdata(numpy.array([self.t_touch[i], self.t_touch[i]]))
+
+                # cum reward label
+                text_x = float(self.t_term) / 25
+                text_y = float(self.cum_rew_y_max - self.cum_rew_y_min) / 10 + float(self.cum_rew_y_min)
+                self.cum_rew_label.set_text("av cum-rew: %.2f" % (self.mean_cum_rew))
+                self.cum_rew_label.set_position((text_x, text_y))
 
                 # policy map
                 self.policy_lines[i].set_xdata(self.vel[i])
@@ -475,9 +494,9 @@ class TK_Interface:
         self.e_vel_factor.insert(tkinter.END, '1')
         self.e_vel_den_ratio.insert(tkinter.END, '0.05')
         self.e_acc_factor.insert(tkinter.END, '1')
-        self.e_motion_bins.insert(tkinter.END, '15')
-        self.e_pos_meas_bins.insert(tkinter.END, '15')
-        self.e_num_samples.insert(tkinter.END, '5')
+        self.e_motion_bins.insert(tkinter.END, '1')
+        self.e_pos_meas_bins.insert(tkinter.END, '1')
+        self.e_num_samples.insert(tkinter.END, '2')
         self.e_t_max.insert(tkinter.END, '5')
         self.sample_w_motion_noise.set(1)
         self.sample_w_pos_meas_noise.set(1)
