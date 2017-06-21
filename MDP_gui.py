@@ -30,6 +30,8 @@ class TK_Interface:
 
         plt.close()
 
+        plt.ion()
+
         # trajectory plots
         self.traj_fig = plt.figure()
         self.pos_graph = self.traj_fig.add_subplot(5,1,1)
@@ -38,13 +40,13 @@ class TK_Interface:
         self.rew_graph = self.traj_fig.add_subplot(5,1,4)
         self.cum_rew_graph = self.traj_fig.add_subplot(5,1,5)
 
+        plt.ioff()
+
         # policy map
         self.policy_fig = plt.figure()
         self.policy_graph = self.policy_fig.add_subplot(1,1,1)
 
         self.traj_fig.tight_layout()  # turn on tight-layout
-
-        #plt.ion()
 
         self.plot_samples = 0
 
@@ -494,10 +496,10 @@ class TK_Interface:
         self.e_vel_factor.insert(tkinter.END, '1')
         self.e_vel_den_ratio.insert(tkinter.END, '0.05')
         self.e_acc_factor.insert(tkinter.END, '1')
-        self.e_motion_bins.insert(tkinter.END, '1')
-        self.e_pos_meas_bins.insert(tkinter.END, '1')
-        self.e_num_samples.insert(tkinter.END, '2')
-        self.e_t_max.insert(tkinter.END, '5')
+        self.e_motion_bins.insert(tkinter.END, '15')
+        self.e_pos_meas_bins.insert(tkinter.END, '15')
+        self.e_num_samples.insert(tkinter.END, '5')
+        self.e_t_max.insert(tkinter.END, '3')
         self.sample_w_motion_noise.set(1)
         self.sample_w_pos_meas_noise.set(1)
 
@@ -1228,19 +1230,19 @@ class TK_Interface:
         row = 0
         column = 0
 
-        column += 1
+        #column += 1
 
         l_plots = tkinter.Label(f_p, text='Plots')
         l_plots.grid(row=row, column=column)
 
         row += 1
-        column -= 1
+        #column -= 1
 
-        self.c_traj_plot = tkagg.FigureCanvasTkAgg(self.traj_fig, master=f_p)
-        self.c_traj_plot.get_tk_widget().grid(row=row, column=column)
-        self.c_traj_plot._tkcanvas.grid(row=row, column=column) # not sure if needed?
+        #self.c_traj_plot = tkagg.FigureCanvasTkAgg(self.traj_fig, master=f_p)
+        #self.c_traj_plot.get_tk_widget().grid(row=row, column=column)
+        #self.c_traj_plot._tkcanvas.grid(row=row, column=column) # not sure if needed?
 
-        column += 2
+        #column += 2
 
         self.c_policy_plot = tkagg.FigureCanvasTkAgg(self.policy_fig, master=f_p)
         self.c_policy_plot.get_tk_widget().grid(row=row, column=column)
