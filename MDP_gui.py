@@ -202,20 +202,94 @@ class TK_Interface:
 
     def update_gui(self, event = 'dummy'):
 
+        # space, vel, and time resolutions
+        self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (float(self.e_num_actions.get()) - 1)
+        self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (float(self.e_num_positions.get()) - 1)
+        self.control_freq = self.vel_res / self.pos_res
+        self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
+
         # dof mode
         if self.dof_comp.get() == 0:
+
+            self.e_t_max.delete(0, tkinter.END)
+            self.e_t_max.insert(tkinter.END, '')
             self.e_t_max.config(state='disable')
-        else:
+
+            self.e_max_pos.config(state='normal')
+            self.e_max_pos.delete(0, tkinter.END)
+            self.e_max_pos.insert(tkinter.END, '50')
+
+            self.l_min_pos.config(text='min pos (cm)')
+            self.l_max_pos.config(text ='max pos (cm)')
+
+            self.l_min_vel.config(text='min vel (cm/s)')
+            self.l_max_vel.config(text='max vel (cm/s)')
+
+            self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (
+            float(self.e_num_actions.get()) - 1)
+            self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (
+            float(self.e_num_positions.get()) - 1)
+            self.control_freq = self.vel_res / self.pos_res
+            self.sv_pos_res.set('      pos res:        %.2f   cm    ' % self.pos_res)
+            self.sv_vel_res.set('      vel res:        %.2f   cm/s    ' % self.vel_res)
+            self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
+
+        elif self.dof_comp.get() == 1:
+
+            self.e_t_max.config(state='normal')
+            self.e_t_max.delete(0, tkinter.END)
+            self.e_t_max.insert(tkinter.END, '5')
+
+            self.e_max_pos.config(state='normal')
+            self.e_max_pos.delete(0, tkinter.END)
+            self.e_max_pos.insert(tkinter.END, '50')
+
             self.e_t_max.config(state='normal')
             self.t_max = int(self.e_t_max.get())
 
-        # space, vel, and time resolutions
-        self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (float(self.e_num_actions.get()) - 1)
-        self.sv_vel_res.set('      vel res:        %.2f   cm/s    ' % self.vel_res)
-        self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (float(self.e_num_positions.get()) - 1)
-        self.sv_pos_res.set('      pos res:        %.2f   cm    ' % self.pos_res)
-        self.control_freq = self.vel_res / self.pos_res
-        self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
+            self.l_min_pos.config(text='min pos (cm)')
+            self.l_max_pos.config(text ='max pos (cm)')
+
+            self.l_min_vel.config(text='min vel (cm/s)')
+            self.l_max_vel.config(text='max vel (cm/s)')
+
+            self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (
+            float(self.e_num_actions.get()) - 1)
+            self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (
+            float(self.e_num_positions.get()) - 1)
+            self.control_freq = self.vel_res / self.pos_res
+            self.sv_pos_res.set('      pos res:        %.2f   cm    ' % self.pos_res)
+            self.sv_vel_res.set('      vel res:        %.2f   cm/s    ' % self.vel_res)
+            self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
+
+        elif self.dof_comp.get() == 2:
+
+            self.e_t_max.config(state='normal')
+            self.e_t_max.delete(0, tkinter.END)
+            self.e_t_max.insert(tkinter.END, '5')
+
+            self.e_max_pos.delete(0, tkinter.END)
+            self.e_max_pos.insert(tkinter.END, '180')
+            self.e_max_pos.config(state='disable')
+
+            self.l_min_pos.config(text='min pos (deg)')
+            self.l_max_pos.config(text='max pos (deg)')
+
+            self.l_min_vel.config(text='min vel (deg/s)')
+            self.l_max_vel.config(text='max vel (deg/s)')
+
+            # UNCOMMENT AFTER VI AND TRAJ IMPLEMENTED PROPERLY
+
+            #self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (
+            #float(self.e_num_actions.get()) - 1)
+            #self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (
+            #float(self.e_num_positions.get()) - 1)
+            #self.control_freq = self.vel_res / self.pos_res
+            self.sv_pos_res.set('      pos res:        %.2f   deg    ' % self.pos_res)
+            self.sv_vel_res.set('      vel res:        %.2f   deg/s    ' % self.vel_res)
+            self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
+            print(str(self.vel_res) + ' ' + str(self.pos_res) + ' ' + str(self.control_freq))
+
 
         # initial state
         self.s_init_pos.config(from_=float(self.e_min_pos.get()), to=float(self.e_max_pos.get()), resolution=self.pos_res, tickinterval=(float(self.e_max_pos.get())-float(self.e_min_pos.get()))/5)
@@ -444,6 +518,8 @@ class TK_Interface:
                         self.v_touch.append(0)
                         traj_end = True
 
+                print('stuck in traj loop')
+
 
 
                 # measurement
@@ -621,8 +697,8 @@ class TK_Interface:
         row += 1
         column -= 3
 
-        l_min_pos = tkinter.Label(f_tb, text='min pos (cm)')
-        l_min_pos.grid(row=row, column=column)
+        self.l_min_pos = tkinter.Label(f_tb)
+        self.l_min_pos.grid(row=row, column=column)
 
         column += 1
 
@@ -632,8 +708,8 @@ class TK_Interface:
 
         column += 1
 
-        l_max_pos = tkinter.Label(f_tb, text='max pos (cm)')
-        l_max_pos.grid(row=row, column=column)
+        self.l_max_pos = tkinter.Label(f_tb)
+        self.l_max_pos.grid(row=row, column=column)
 
         column += 1
 
@@ -672,8 +748,8 @@ class TK_Interface:
         row += 1
         column -= 3
 
-        l_min_vel = tkinter.Label(f_tb, text='min vel (cm/s)')
-        l_min_vel.grid(row=row, column=column)
+        self.l_min_vel = tkinter.Label(f_tb)
+        self.l_min_vel.grid(row=row, column=column)
 
         column += 1
 
@@ -683,8 +759,8 @@ class TK_Interface:
 
         column += 1
 
-        l_max_vel = tkinter.Label(f_tb, text='max vel (cm/s)')
-        l_max_vel.grid(row=row, column=column)
+        self.l_max_vel = tkinter.Label(f_tb)
+        self.l_max_vel.grid(row=row, column=column)
 
         column += 1
 
