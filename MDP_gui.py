@@ -16,6 +16,13 @@ class TK_Interface:
     # Core Functions #
     #----------------#
 
+    def compute_resolutions(self):
+        self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (
+            float(self.e_num_actions.get()) - 1)
+        self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (
+            float(self.e_num_positions.get()) - 1)
+        self.control_freq = self.vel_res / self.pos_res
+
     def gaussian(self, x, mu=0, sig=1):
         return numpy.exp(-numpy.power(x - mu, 2.) / (2 * numpy.power(sig, 2.)))
 
@@ -47,7 +54,10 @@ class TK_Interface:
 
             # position graph
             self.pos_graph.cla()
-            self.pos_graph.set_title('Displacement (cm)')
+            if self.dof_comp.get() == 0 or self.dof_comp.get() == 1:
+                self.pos_graph.set_title('Displacement (cm)')
+            elif self.dof_comp.get() == 2:
+                self.pos_graph.set_title('Displacement (rad)')
             min_pos = float(self.e_min_pos.get())
             max_pos = float(self.e_max_pos.get())
             mid_pos = (max_pos + min_pos) / 2
@@ -57,17 +67,23 @@ class TK_Interface:
                 self.pos_graph.set_xlim(0, max(self.t_touch))
                 self.pos_graph.set_ylim(pos_y_min, pos_y_max)
                 self.pos_x_axis = self.pos_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([0, 0]), 'k')[0]  # x axis
-            elif self.dof_comp.get() == 1 or self.dof_comp.get() == 2:
+            elif self.dof_comp.get() == 1:
                 pos_min_est = float((self.num_motion_bins-1)/2+(self.num_pos_meas_bins-1)/2)*self.pos_res
                 self.pos_graph.set_xlim(0, self.t_max)
                 self.pos_graph.set_ylim(-pos_min_est, pos_y_max)
                 self.pos_x_axis = self.pos_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
-
+            elif self.dof_comp.get() == 2:
+                self.pos_graph.set_xlim(0, self.t_max)
+                self.pos_graph.set_ylim(-pos_y_max, pos_y_max)
+                self.pos_x_axis = self.pos_graph.plot(numpy.array([0, self.t_max]), numpy.array([0, 0]), 'k')[0]  # x axis
 
 
             # velocity graph
             self.vel_graph.cla()
-            self.vel_graph.set_title('Velocity (cm/s)')
+            if self.dof_comp.get() == 0 or self.dof_comp.get() == 1:
+                self.vel_graph.set_title('Velocity (cm/s)')
+            elif self.dof_comp.get() == 2:
+                self.vel_graph.set_title('Velocity (rad/s)')
             min_vel = float(self.e_min_vel.get())
             max_vel = float(self.e_max_vel.get())
             mid_vel = (max_vel + min_vel) / 2
@@ -86,7 +102,10 @@ class TK_Interface:
             # acceleration graph
             self.acc_graph.cla()
             self.acc_graph.set_xlabel('Time (s)')
-            self.acc_graph.set_title('Acceleration (cm/s^2)')
+            if self.dof_comp.get() == 0 or self.dof_comp.get() == 1:
+                self.acc_graph.set_title('Acceleration (cm/s^2)')
+            elif self.dof_comp.get() == 2:
+                self.acc_graph.set_title('Acceleration (rad/s^2)')
             min_acc = min([min(sublist) for sublist in self.acc])
             max_acc = max([max(sublist) for sublist in self.acc])
             mid_acc = (max_acc + min_acc) / 2
@@ -202,92 +221,75 @@ class TK_Interface:
 
     def update_gui(self, event = 'dummy'):
 
-        # space, vel, and time resolutions
-        self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (float(self.e_num_actions.get()) - 1)
-        self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (float(self.e_num_positions.get()) - 1)
-        self.control_freq = self.vel_res / self.pos_res
-        self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
-
         # dof mode
         if self.dof_comp.get() == 0:
+            if event == 'dof selection':
+                self.e_t_max.delete(0, tkinter.END)
+                self.e_t_max.insert(tkinter.END, '')
+                self.e_t_max.config(state='disable')
 
-            self.e_t_max.delete(0, tkinter.END)
-            self.e_t_max.insert(tkinter.END, '')
-            self.e_t_max.config(state='disable')
+                self.e_max_pos.config(state='normal')
+                self.e_max_pos.delete(0, tkinter.END)
+                self.e_max_pos.insert(tkinter.END, '50')
 
-            self.e_max_pos.config(state='normal')
-            self.e_max_pos.delete(0, tkinter.END)
-            self.e_max_pos.insert(tkinter.END, '50')
+                self.l_min_pos.config(text='min pos (cm)')
+                self.l_max_pos.config(text ='max pos (cm)')
 
-            self.l_min_pos.config(text='min pos (cm)')
-            self.l_max_pos.config(text ='max pos (cm)')
+                self.l_min_vel.config(text='min vel (cm/s)')
+                self.l_max_vel.config(text='max vel (cm/s)')
 
-            self.l_min_vel.config(text='min vel (cm/s)')
-            self.l_max_vel.config(text='max vel (cm/s)')
-
-            self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (
-            float(self.e_num_actions.get()) - 1)
-            self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (
-            float(self.e_num_positions.get()) - 1)
-            self.control_freq = self.vel_res / self.pos_res
+            self.compute_resolutions()
             self.sv_pos_res.set('      pos res:        %.2f   cm    ' % self.pos_res)
             self.sv_vel_res.set('      vel res:        %.2f   cm/s    ' % self.vel_res)
             self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
 
         elif self.dof_comp.get() == 1:
+            if event == 'dof selection':
+                self.e_t_max.config(state='normal')
+                self.e_t_max.delete(0, tkinter.END)
+                self.e_t_max.insert(tkinter.END, '5')
 
-            self.e_t_max.config(state='normal')
-            self.e_t_max.delete(0, tkinter.END)
-            self.e_t_max.insert(tkinter.END, '5')
+                self.e_max_pos.config(state='normal')
+                self.e_max_pos.delete(0, tkinter.END)
+                self.e_max_pos.insert(tkinter.END, '50')
 
-            self.e_max_pos.config(state='normal')
-            self.e_max_pos.delete(0, tkinter.END)
-            self.e_max_pos.insert(tkinter.END, '50')
+                self.e_t_max.config(state='normal')
 
-            self.e_t_max.config(state='normal')
+                self.l_min_pos.config(text='min pos (cm)')
+                self.l_max_pos.config(text ='max pos (cm)')
+
+                self.l_min_vel.config(text='min vel (cm/s)')
+                self.l_max_vel.config(text='max vel (cm/s)')
+
             self.t_max = int(self.e_t_max.get())
 
-            self.l_min_pos.config(text='min pos (cm)')
-            self.l_max_pos.config(text ='max pos (cm)')
-
-            self.l_min_vel.config(text='min vel (cm/s)')
-            self.l_max_vel.config(text='max vel (cm/s)')
-
-            self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (
-            float(self.e_num_actions.get()) - 1)
-            self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (
-            float(self.e_num_positions.get()) - 1)
-            self.control_freq = self.vel_res / self.pos_res
+            self.compute_resolutions()
             self.sv_pos_res.set('      pos res:        %.2f   cm    ' % self.pos_res)
             self.sv_vel_res.set('      vel res:        %.2f   cm/s    ' % self.vel_res)
             self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
 
         elif self.dof_comp.get() == 2:
+            if event == 'dof selection':
 
-            self.e_t_max.config(state='normal')
-            self.e_t_max.delete(0, tkinter.END)
-            self.e_t_max.insert(tkinter.END, '5')
+                self.e_t_max.config(state='normal')
+                self.e_t_max.delete(0, tkinter.END)
+                self.e_t_max.insert(tkinter.END, '5')
 
-            self.e_max_pos.delete(0, tkinter.END)
-            self.e_max_pos.insert(tkinter.END, '180')
-            self.e_max_pos.config(state='disable')
+                self.e_max_pos.delete(0, tkinter.END)
+                self.e_max_pos.insert(tkinter.END, '180')
+                self.e_max_pos.config(state='disable')
 
-            self.e_t_max.config(state='normal')
+                self.e_t_max.config(state='normal')
+
+                self.l_min_pos.config(text='min pos (deg)')
+                self.l_max_pos.config(text='max pos (deg)')
+
+                self.l_min_vel.config(text='min vel (deg/s)')
+                self.l_max_vel.config(text='max vel (deg/s)')
+
             self.t_max = int(self.e_t_max.get())
 
-            self.l_min_pos.config(text='min pos (deg)')
-            self.l_max_pos.config(text='max pos (deg)')
-
-            self.l_min_vel.config(text='min vel (deg/s)')
-            self.l_max_vel.config(text='max vel (deg/s)')
-
-            # UNCOMMENT AFTER VI AND TRAJ IMPLEMENTED PROPERLY
-
-            self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (
-            float(self.e_num_actions.get()) - 1)
-            self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (
-            float(self.e_num_positions.get()) - 1)
-            self.control_freq = self.vel_res / self.pos_res
+            self.compute_resolutions()
             self.sv_pos_res.set('      pos res:        %.2f   deg    ' % self.pos_res)
             self.sv_vel_res.set('      vel res:        %.2f   deg/s    ' % self.vel_res)
             self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
@@ -359,7 +361,7 @@ class TK_Interface:
         self.e_vel_factor.insert(tkinter.END, '1')
         self.e_vel_den_ratio.insert(tkinter.END, '0.05')
         self.e_acc_factor.insert(tkinter.END, '1')
-        self.e_motion_bins.insert(tkinter.END, '3')
+        self.e_motion_bins.insert(tkinter.END, '1')
         self.e_pos_meas_bins.insert(tkinter.END, '1')
         self.e_num_samples.insert(tkinter.END, '1')
         self.e_t_max.insert(tkinter.END, '5')
@@ -545,12 +547,14 @@ class TK_Interface:
                     elif pos_meas < -int(float(self.e_max_pos.get())/self.pos_res):
                         pos_meas = -int(float(self.e_max_pos.get()) / self.pos_res)
                 elif self.dof_comp.get() == 2:
-                    pos_meas = int((pos_meas+float(self.e_max_pos.get())/self.pos_res) % 2*float(self.e_max_pos.get())/self.pos_res - float(self.e_max_pos.get())/self.pos_res)
+                    pos_meas = int(pos_meas+float(self.e_max_pos.get())/self.pos_res) % int(2*float(self.e_max_pos.get())/self.pos_res) - int(float(self.e_max_pos.get())/self.pos_res)
                     if pos_meas == int(-float(self.e_max_pos.get())/self.pos_res):
                         pos_meas = int(float(self.e_max_pos.get())/self.pos_res) # to favor 180 over -180
                 state_meas = [pos_meas, state[1]]
 
-                target_vel = self.vi.policy[int(self.num_states - abs(state_meas[0]) * self.num_actions - self.num_actions + abs(state_meas[1]))]
+                policy_state = [abs(state_meas[0]), abs(state_meas[1])]
+
+                target_vel = self.vi.policy[int(self.num_states - policy_state[0] * self.num_actions - self.num_actions + policy_state[1])]
 
                 # correct velocity sign
                 if pos_meas < 0:
@@ -572,19 +576,19 @@ class TK_Interface:
 
                 # new position border clipping
                 if self.dof_comp.get() == 0:
-                    if new_pos < float(self.e_min_pos.get())/self.pos_res:
-                        new_pos = float(self.e_min_pos.get())/self.pos_res
-                    elif new_pos > float(self.e_max_pos.get())/self.pos_res:
-                        new_pos = float(self.e_max_pos.get())/self.pos_res
+                    if new_pos < int(float(self.e_min_pos.get())/self.pos_res):
+                        new_pos = int(float(self.e_min_pos.get())/self.pos_res)
+                    elif new_pos > int(float(self.e_max_pos.get())/self.pos_res):
+                        new_pos = int(float(self.e_max_pos.get())/self.pos_res)
                 elif self.dof_comp.get() == 1:
-                    if new_pos > float(self.e_max_pos.get())/self.pos_res:
-                        new_pos = float(self.e_max_pos.get())/self.pos_res
-                    elif new_pos < -float(self.e_max_pos.get())/self.pos_res:
-                        new_pos = -float(self.e_max_pos.get()) / self.pos_res
+                    if new_pos > int(float(self.e_max_pos.get())/self.pos_res):
+                        new_pos = int(float(self.e_max_pos.get())/self.pos_res)
+                    elif new_pos < -int(float(self.e_max_pos.get())/self.pos_res):
+                        new_pos = -int(float(self.e_max_pos.get()) / self.pos_res)
                 elif self.dof_comp.get() == 2:
-                    new_pos = (new_pos+float(self.e_max_pos.get())/self.pos_res) % float(2*self.e_max_pos.get())/self.pos_res + float(self.e_max_pos.get())/self.pos_res
-                    if new_pos == -float(self.e_max_pos.get())/self.pos_res:
-                        new_pos = float(self.e_max_pos.get())/self.pos_res # to favor 180 over -180
+                    new_pos = int(new_pos+float(self.e_max_pos.get())/self.pos_res) % int(2*float(self.e_max_pos.get())/self.pos_res) - int(float(self.e_max_pos.get())/self.pos_res)
+                    if new_pos == int(-float(self.e_max_pos.get())/self.pos_res):
+                        new_pos = int(float(self.e_max_pos.get())/self.pos_res) # to favor 180 over -180
 
                 prev_state = state
                 state = [new_pos, target_vel]
@@ -1095,9 +1099,9 @@ class TK_Interface:
         self.s_init_pos.config(command = lambda v: self.S_init_pos(v))
         self.s_init_vel.config(command = lambda v: self.S_init_vel(v))
         # set up mode selector for gui updates
-        self.r_dof_comp_z.config(command = self.update_gui)
-        self.r_dof_comp_xy.config(command = self.update_gui)
-        self.r_dof_comp_ang.config(command = self.update_gui)
+        self.r_dof_comp_z.config(command = lambda: self.update_gui('dof selection'))
+        self.r_dof_comp_xy.config(command = lambda: self.update_gui('dof selection'))
+        self.r_dof_comp_ang.config(command = lambda: self.update_gui('dof selection'))
 
         # start mainloop #
         #----------------#
