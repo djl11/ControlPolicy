@@ -280,16 +280,15 @@ class TK_Interface:
 
             # UNCOMMENT AFTER VI AND TRAJ IMPLEMENTED PROPERLY
 
-            #self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (
-            #float(self.e_num_actions.get()) - 1)
-            #self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (
-            #float(self.e_num_positions.get()) - 1)
-            #self.control_freq = self.vel_res / self.pos_res
+            self.vel_res = (float(self.e_max_vel.get()) - float(self.e_min_vel.get())) / (
+            float(self.e_num_actions.get()) - 1)
+            self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (
+            float(self.e_num_positions.get()) - 1)
+            self.control_freq = self.vel_res / self.pos_res
             self.sv_pos_res.set('      pos res:        %.2f   deg    ' % self.pos_res)
             self.sv_vel_res.set('      vel res:        %.2f   deg/s    ' % self.vel_res)
             self.sv_control_freq.set('      control freq:        %.2f   Hz    ' % self.control_freq)
             print(str(self.vel_res) + ' ' + str(self.pos_res) + ' ' + str(self.control_freq))
-
 
         # initial state
         self.s_init_pos.config(from_=float(self.e_min_pos.get()), to=float(self.e_max_pos.get()), resolution=self.pos_res, tickinterval=(float(self.e_max_pos.get())-float(self.e_min_pos.get()))/5)
@@ -390,13 +389,22 @@ class TK_Interface:
             transitions[i, :, :] = numpy.roll(no_vel_trans[:,:], i * self.num_actions + i, 1)
 
             #re-normalise border at top
-            if (i < self.motion_centre_idx):  # if there are border terms
-                for j in range(0, self.motion_centre_idx - i): # iterate over groups
-                    # top-left (starting state border)
-                    transitions[i,j*self.num_actions:(j+1)*self.num_actions, i] += numpy.sum(self.crude_motion_hist[0:self.motion_centre_idx - j - i])
-                    # top-right (initial rolled over)
-                    start = self.num_states - (self.motion_centre_idx - i) * self.num_actions + i
-                    transitions[i, 0:(j + 1) * self.num_actions, start + j*self.num_actions] = 0
+            if self.dof_comp.get() == 0 or self.dof_comp.get() == 1: # z or x-y mode
+                if (i < self.motion_centre_idx):  # if there are border terms
+                    for j in range(0, self.motion_centre_idx - i): # iterate over groups
+                        # top-left (starting state border)
+                        transitions[i,j*self.num_actions:(j+1)*self.num_actions, i] += numpy.sum(self.crude_motion_hist[0:self.motion_centre_idx - j - i])
+                        # top-right (initial rolled over)
+                        start = self.num_states - (self.motion_centre_idx - i) * self.num_actions + i
+                        transitions[i, 0:(j + 1) * self.num_actions, start + j*self.num_actions] = 0
+            elif self.dof_comp.get() == 2: # ang mode
+                if (i < self.motion_centre_idx):  # if there are border terms
+                    for j in range(0, self.motion_centre_idx - i): # iterate over groups
+                        start = self.num_states - (self.motion_centre_idx - i) * self.num_actions + i
+                        # mirror rollover terms about lhs border matrix
+                        transitions[i, 0:(j + 1) * self.num_actions, -(start-i+j*self.num_actions) % self.num_states + i] += \
+                            transitions[i, 0:(j + 1) * self.num_actions, start + j * self.num_actions]
+                        transitions[i, 0:(j + 1) * self.num_actions, start + j*self.num_actions] = 0
 
 
             #re-normalise border at bottom
@@ -410,14 +418,13 @@ class TK_Interface:
                     # bottom-right (final state-rolled over)
                     transitions[i,start_j:self.num_states, i+j*self.num_actions] = 0
 
-            elif self.dof_comp.get() == 1: # x-y mode
+            elif self.dof_comp.get() == 1 or self.dof_comp.get() == 2: # x-y or ang mode
                 for j in range(0, self.motion_centre_idx + i):
                     start_j = self.num_states+ (j - self.motion_centre_idx - i) * self.num_actions
                     # mirror rollover terms about rhs border of matrix
                     transitions[i, start_j:self.num_states, (i-(j+2) * self.num_actions) % self.num_states] += \
                         transitions[i, start_j:self.num_states, i + j * self.num_actions]
                     transitions[i, start_j:self.num_states, i + j * self.num_actions] = 0
-
 
         # reward matrix
 
@@ -517,10 +524,6 @@ class TK_Interface:
                         self.t_touch.append(0)
                         self.v_touch.append(0)
                         traj_end = True
-
-                print('stuck in traj loop')
-
-
 
                 # measurement
                 if self.sample_w_pos_meas_noise.get() == 1:
