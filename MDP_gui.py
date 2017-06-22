@@ -1,6 +1,4 @@
 import os
-import operator
-import functools
 import mdptoolbox
 import numpy
 numpy.set_printoptions(linewidth=1000,threshold=numpy.nan)
@@ -9,7 +7,6 @@ import tkinter
 import threading
 import matplotlib.backends.backend_tkagg as tkagg
 import matplotlib.pyplot as plt
-from colour import Color
 
 class TK_Interface:
 
@@ -22,6 +19,45 @@ class TK_Interface:
         self.pos_res = (float(self.e_max_pos.get()) - float(self.e_min_pos.get())) / (
             float(self.e_num_positions.get()) - 1)
         self.control_freq = self.vel_res / self.pos_res
+
+    def interpolate_policy(self, x, y):
+
+        x1 = math.floor(x)
+        x2 = math.ceil(x)
+        y1 = math.floor(y)
+        y2 = math.ceil(y)
+
+        pol_x1y1 = self.vi.policy[int(self.num_states - x1 * self.num_actions - self.num_actions + y1)]
+        pol_x1y2 = self.vi.policy[int(self.num_states - x1 * self.num_actions - self.num_actions + y2)]
+        pol_x2y1 = self.vi.policy[int(self.num_states - x2 * self.num_actions - self.num_actions + y1)]
+        pol_x2y2 = self.vi.policy[int(self.num_states - x2 * self.num_actions - self.num_actions + y2)]
+
+        if x1 == x2:
+            if y1 == y2:
+                return pol_x1y1 # both are integers
+            else:
+                return (1 / (y2 - y1)) * ((y2 - y) * pol_x1y1 + (y - y1) * pol_x1y2) # just x is integer
+        elif y1 == y2:
+                return (1 / (x2 - x1)) * ((x2 - x) * pol_x1y1 + (x - x1) * pol_x2y1)  # just y is integer
+        else:
+            return (1 / ((x2 - x1) * (y2 - y1))) * (
+            (x2 - x) * (y2 - y) * pol_x1y1 + (x - x1) * (y2 - y) * pol_x2y1 + (x2 - x) * (y - y1) * pol_x1y2 + (
+            x - x1) * (y - y1) * pol_x2y2) # neither are integers
+
+
+
+
+    def compute_continuous_policy_map(self):
+
+        image_width = 640
+        image_height = 480
+
+        self.continuous_policy_map = numpy.zeros((image_height, image_width))
+        for i in range(image_height):
+            for j in range(image_width):
+                policy_index_i = float(i) / float(image_height-1) * (self.num_pos_states-1)
+                policy_index_j = float(j) / float(image_width-1) * (self.num_actions-1)
+                self.continuous_policy_map[i,j] = self.interpolate_policy(policy_index_i,policy_index_j)
 
     def gaussian(self, x, mu=0, sig=1):
         return numpy.exp(-numpy.power(x - mu, 2.) / (2 * numpy.power(sig, 2.)))
@@ -166,14 +202,23 @@ class TK_Interface:
             self.policy_graph.cla()
             self.policy_graph.set_xlabel('Velocity (cm/s)')
             self.policy_graph.set_ylabel('Displacement (cm)')
-            policy_map = numpy.zeros((self.num_pos_states, self.num_actions))
+            self.discrete_policy_map = numpy.zeros((self.num_pos_states, self.num_actions))
             for j in range(self.num_pos_states):
                 for k in range(self.num_actions):
-                    policy_map[j, k] = self.vi.policy[
+                    self.discrete_policy_map[j, k] = self.vi.policy[
                         int(self.num_states - j * self.num_actions - self.num_actions + k)]
-            self.policy_graph.imshow(policy_map, aspect='auto', interpolation='none',
-                                     extent=[float(self.e_min_vel.get()), float(self.e_max_vel.get()),
-                                             float(self.e_max_pos.get()), float(self.e_min_pos.get())])
+
+            if float(self.policy_mode.get()) == 0:
+                self.policy_map = self.policy_graph.imshow(self.discrete_policy_map, aspect='auto', interpolation='none',
+                                        extent=[float(self.e_min_vel.get()), float(self.e_max_vel.get()),
+                                        float(self.e_max_pos.get()), float(self.e_min_pos.get())])
+                self.prev_policy_mode = 0
+            elif self.policy_mode == 1:
+                self.compute_continuous_policy_map()
+                self.policy_map = self.policy_graph.imshow(self.continuous_policy_map, aspect='auto', interpolation='none',
+                                         extent=[float(self.e_min_vel.get()), float(self.e_max_vel.get()),
+                                         float(self.e_max_pos.get()), float(self.e_min_pos.get())])
+                self.prev_policy_mode = 1
             self.policy_graph.autoscale(False)
 
             # init traj arrays
@@ -348,6 +393,13 @@ class TK_Interface:
                 self.cum_rew_label.set_position((text_x, text_y))
 
                 # policy map
+                if float(self.policy_mode.get()) == 0 and self.prev_policy_mode != 0:
+                    self.policy_map.set_data(self.discrete_policy_map)
+                    self.prev_policy_mode = 0
+                elif float(self.policy_mode.get()) == 1 and self.prev_policy_mode != 1:
+                    self.compute_continuous_policy_map()
+                    self.policy_map.set_data(self.continuous_policy_map)
+                    self.prev_policy_mode = 1
                 self.policy_lines[i].set_xdata(self.vel[i])
                 self.policy_lines[i].set_ydata(self.pos[i])
 
@@ -503,8 +555,8 @@ class TK_Interface:
         self.sample_w_motion_noise.set(1)
         self.sample_w_pos_meas_noise.set(1)
 
-        #self.init_pos = float(self.e_max_pos.get()) # TRYING TO FIX SLIDER RESET
-        #self.init_vel = float(self.e_min_vel.get())
+        self.init_pos = float(self.e_max_pos.get())
+        self.init_vel = float(self.e_min_vel.get())
 
         self.update_gui()
 
@@ -1095,8 +1147,30 @@ class TK_Interface:
         self.e_pos_meas_bins = tkinter.Entry(f_tb, width=5)
         self.e_pos_meas_bins.grid(row=row, column=column)
 
+        column += 1
+
+        l_sample_w_motion_noise = tkinter.Label(f_tb, text='sample with motion noise?')
+        l_sample_w_motion_noise.grid(row=row, column=column)
+
+        column += 1
+
+        self.sample_w_motion_noise = tkinter.IntVar()
+        self.c_sample_w_motion_noise = tkinter.Checkbutton(f_tb, text="yes", variable=self.sample_w_motion_noise)
+        self.c_sample_w_motion_noise.grid(row=row, column=column)
+
+        column += 1
+
+        l_sample_w_pos_meas_noise = tkinter.Label(f_tb, text='sample with pos meas noise?')
+        l_sample_w_pos_meas_noise.grid(row=row, column=column)
+
+        column += 1
+
+        self.sample_w_pos_meas_noise = tkinter.IntVar()
+        self.c_sample_w_pos_meas_noise = tkinter.Checkbutton(f_tb, text="yes", variable=self.sample_w_pos_meas_noise)
+        self.c_sample_w_pos_meas_noise.grid(row=row, column=column)
+
         row += 1
-        column -= 3
+        column -= 7
 
         # Plotting Options #
         #------------------#
@@ -1129,25 +1203,24 @@ class TK_Interface:
 
         column += 1
 
-        l_sample_w_motion_noise = tkinter.Label(f_tb, text='sample with motion noise?')
-        l_sample_w_motion_noise.grid(row=row, column=column)
+        l_disc_pol = tkinter.Label(f_tb, text='discrete policy:')
+        l_disc_pol.grid(row=row, column=column)
 
         column += 1
 
-        self.sample_w_motion_noise = tkinter.IntVar()
-        self.c_sample_w_motion_noise = tkinter.Checkbutton(f_tb, text="yes", variable=self.sample_w_motion_noise)
-        self.c_sample_w_motion_noise.grid(row=row, column=column)
+        self.policy_mode = tkinter.IntVar()
+        self.r_disc_pol = tkinter.Radiobutton(f_tb, variable=self.policy_mode, value=0)
+        self.r_disc_pol.grid(row=row, column=column)
 
         column += 1
 
-        l_sample_w_pos_meas_noise = tkinter.Label(f_tb, text='sample with pos meas noise?')
-        l_sample_w_pos_meas_noise.grid(row=row, column=column)
+        l_cont_pol = tkinter.Label(f_tb, text='continuous policy:')
+        l_cont_pol.grid(row=row, column=column)
 
         column += 1
 
-        self.sample_w_pos_meas_noise = tkinter.IntVar()
-        self.c_sample_w_pos_meas_noise = tkinter.Checkbutton(f_tb, text="yes", variable=self.sample_w_pos_meas_noise)
-        self.c_sample_w_pos_meas_noise.grid(row=row, column=column)
+        self.r_cont_pol = tkinter.Radiobutton(f_tb, variable=self.policy_mode, value=1)
+        self.r_cont_pol.grid(row=row, column=column)
 
         row += 1
         column -= 7
@@ -1262,6 +1335,9 @@ class TK_Interface:
         self.r_dof_comp_z.config(command = lambda: self.update_gui('dof selection'))
         self.r_dof_comp_xy.config(command = lambda: self.update_gui('dof selection'))
         self.r_dof_comp_ang.config(command = lambda: self.update_gui('dof selection'))
+        # set up policy mode selector for policy map updates
+        self.r_disc_pol.config(command = lambda: self.update_plots(recomputed_flag=False))
+        self.r_cont_pol.config(command = lambda: self.update_plots(recomputed_flag=False))
 
         # start mainloop #
         #----------------#
