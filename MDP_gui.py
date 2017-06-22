@@ -27,25 +27,75 @@ class TK_Interface:
         y1 = math.floor(y)
         y2 = math.ceil(y)
 
+        if x1 == x2:
+            if x2 == self.num_pos_states - 1:
+                x1 -= 1
+            else:
+                x2 += 1
+        if y1 == y2:
+            if y2 == self.num_actions - 1:
+                y1 -= 1
+            else:
+                y2 += 1
+
         pol_x1y1 = self.vi.policy[int(self.num_states - x1 * self.num_actions - self.num_actions + y1)]
         pol_x1y2 = self.vi.policy[int(self.num_states - x1 * self.num_actions - self.num_actions + y2)]
         pol_x2y1 = self.vi.policy[int(self.num_states - x2 * self.num_actions - self.num_actions + y1)]
         pol_x2y2 = self.vi.policy[int(self.num_states - x2 * self.num_actions - self.num_actions + y2)]
 
-        if x1 == x2:
-            if y1 == y2:
-                return pol_x1y1 # both are integers
+        return (1 / ((x2 - x1) * (y2 - y1))) * (
+        (x2 - x) * (y2 - y) * pol_x1y1 + (x - x1) * (y2 - y) * pol_x2y1 + (x2 - x) * (y - y1) * pol_x1y2 + (
+        x - x1) * (y - y1) * pol_x2y2)
+
+    def interpolate_reward(self, x, y, z, rew_comp):
+
+        x0 = math.floor(x)
+        x1 = math.ceil(x)
+        y0 = math.floor(y)
+        y1 = math.ceil(y)
+        z0 = math.floor(z)
+        z1 = math.ceil(z)
+
+        if x0 == x1:
+            if x1 == self.num_pos_states - 1:
+                x0 -= 1
             else:
-                return (1 / (y2 - y1)) * ((y2 - y) * pol_x1y1 + (y - y1) * pol_x1y2) # just x is integer
-        elif y1 == y2:
-                return (1 / (x2 - x1)) * ((x2 - x) * pol_x1y1 + (x - x1) * pol_x2y1)  # just y is integer
-        else:
-            return (1 / ((x2 - x1) * (y2 - y1))) * (
-            (x2 - x) * (y2 - y) * pol_x1y1 + (x - x1) * (y2 - y) * pol_x2y1 + (x2 - x) * (y - y1) * pol_x1y2 + (
-            x - x1) * (y - y1) * pol_x2y2) # neither are integers
+                x1 += 1
+        if y0 == y1:
+            if y1 == self.num_actions - 1:
+                y0 -= 1
+            else:
+                y1 += 1
+        if z0 == z1:
+            if z1 == self.num_actions - 1:
+                z0 -= 1
+            else:
+                z1 += 1
 
+        rew_x0y0act0 = self.reward_mats[rew_comp][self.num_states - x0 * self.num_actions - self.num_actions + y0, z0]
+        rew_x0y0act1 = self.reward_mats[rew_comp][self.num_states - x0 * self.num_actions - self.num_actions + y0, z1]
+        rew_x0y1act0 = self.reward_mats[rew_comp][self.num_states - x0 * self.num_actions - self.num_actions + y1, z0]
+        rew_x0y1act1 = self.reward_mats[rew_comp][self.num_states - x0 * self.num_actions - self.num_actions + y1, z1]
+        rew_x1y0act0 = self.reward_mats[rew_comp][self.num_states - x1 * self.num_actions - self.num_actions + y0, z0]
+        rew_x1y0act1 = self.reward_mats[rew_comp][self.num_states - x1 * self.num_actions - self.num_actions + y0, z1]
+        rew_x1y1act0 = self.reward_mats[rew_comp][self.num_states - x1 * self.num_actions - self.num_actions + y1, z0]
+        rew_x1y1act1 = self.reward_mats[rew_comp][self.num_states - x1 * self.num_actions - self.num_actions + y1, z1]
 
+        xd = (x-x0)/(x1-x0)
+        yd = (y-y0)/(y1-y0)
+        zd = (z-z0)/(z1-z0)
 
+        c00 = rew_x0y0act0*(1-xd)+rew_x1y0act0*xd
+        c01 = rew_x0y0act1*(1-xd)+rew_x1y0act1*xd
+        c10 = rew_x0y1act0*(1-xd)+rew_x1y1act0*xd
+        c11 = rew_x0y1act1*(1-xd)+rew_x1y1act1*xd
+
+        c0 = c00*(1-yd)+c10*yd
+        c1 = c01*(1-yd)+c11*yd
+
+        c = c0*(1-zd)+c1*zd
+
+        return c
 
     def compute_continuous_policy_map(self):
 
@@ -213,7 +263,7 @@ class TK_Interface:
                                         extent=[float(self.e_min_vel.get()), float(self.e_max_vel.get()),
                                         float(self.e_max_pos.get()), float(self.e_min_pos.get())])
                 self.prev_policy_mode = 0
-            elif self.policy_mode == 1:
+            elif float(self.policy_mode.get()) == 1:
                 self.compute_continuous_policy_map()
                 self.policy_map = self.policy_graph.imshow(self.continuous_policy_map, aspect='auto', interpolation='none',
                                          extent=[float(self.e_min_vel.get()), float(self.e_max_vel.get()),
@@ -226,6 +276,7 @@ class TK_Interface:
             self.pos_meas_lines = []
             self.pos_t_lines = []
             self.vel_lines = []
+            self.vel_meas_lines = []
             self.vel_t_lines = []
             self.vel_v_lines =[]
             self.acc_lines = []
@@ -242,6 +293,7 @@ class TK_Interface:
                 self.pos_lines.append(self.pos_graph.plot(self.time[i], self.pos[i], 'b', marker='o', markeredgecolor='w')[0])
                 self.pos_t_lines.append(self.pos_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([pos_y_min, pos_y_max]), 'r--')[0])
 
+                self.vel_meas_lines.append(self.vel_graph.plot(self.time[i], self.vel_meas[i], 'm', marker='x')[0])
                 self.vel_lines.append(self.vel_graph.plot(self.time[i], self.vel[i], 'r', marker='o', markeredgecolor='w')[0])
                 self.vel_t_lines.append(self.vel_graph.plot(numpy.array([self.t_touch[i], self.t_touch[i]]), numpy.array([vel_y_min, vel_y_max]), 'r--')[0])
                 self.vel_v_lines.append(self.vel_graph.plot(numpy.array([0, max(self.t_touch)]), numpy.array([self.v_touch[i], self.v_touch[i]]), 'r--')[0])
@@ -323,6 +375,8 @@ class TK_Interface:
                 # velocity lines
                 self.vel_lines[i].set_xdata(self.time[i])
                 self.vel_lines[i].set_ydata(self.vel[i])
+                self.vel_meas_lines[i].set_xdata(self.time[i])
+                self.vel_meas_lines[i].set_ydata(self.vel_meas[i])
                 self.vel_t_lines[i].set_xdata(numpy.array([self.t_touch[i], self.t_touch[i]]))
                 self.vel_v_lines[i].set_ydata(numpy.array([self.v_touch[i], self.v_touch[i]]))
 
@@ -346,7 +400,7 @@ class TK_Interface:
                 for j in range(0, int(self.e_num_samples.get())):
                     self.mean_cum_rew += float(self.cum_rew[-1][j][-1])
                 self.mean_cum_rew /= float(self.e_num_samples.get())
-                self.mean_rew = self.mean_cum_rew / (self.t_term*self.control_freq)
+                self.mean_rew = self.mean_cum_rew / (self.t_term*self.control_freq) if self.t_term > 0 else 0
 
                 # update rew y lims
                 min_rew = min([min(sublist) for sublist in self.rew[-1]])
@@ -494,6 +548,7 @@ class TK_Interface:
         self.num_pos_states = int(self.e_num_positions.get())
         self.num_motion_bins = int(self.e_motion_bins.get())
         self.num_pos_meas_bins = int(self.e_pos_meas_bins.get())
+        self.num_vel_meas_bins = int(self.e_vel_meas_bins.get())
         self.num_states = self.num_pos_states * self.num_actions
 
         # crude gaussian histograms
@@ -508,8 +563,14 @@ class TK_Interface:
         self.crude_pos_meas_hist = self.crude_pos_meas_hist[1::2]
         self.crude_pos_meas_hist = self.crude_pos_meas_hist / numpy.sum(self.crude_pos_meas_hist)
 
+        # vel measurement
+        self.crude_vel_meas_hist = self.gaussian(numpy.linspace(-3, 3, 2 * self.num_vel_meas_bins + 1))
+        self.crude_vel_meas_hist = self.crude_vel_meas_hist[1::2]
+        self.crude_vel_meas_hist = self.crude_vel_meas_hist / numpy.sum(self.crude_vel_meas_hist)
+
         self.motion_centre_idx = int(self.num_motion_bins / 2)
         self.pos_meas_centre_idx = int(self.num_pos_meas_bins / 2)
+        self.vel_meas_centre_idx = int(self.num_vel_meas_bins / 2)
 
         # perform updates
         self.tk_root.update_idletasks()
@@ -548,12 +609,14 @@ class TK_Interface:
         self.e_vel_factor.insert(tkinter.END, '1')
         self.e_vel_den_ratio.insert(tkinter.END, '0.05')
         self.e_acc_factor.insert(tkinter.END, '1')
-        self.e_motion_bins.insert(tkinter.END, '15')
-        self.e_pos_meas_bins.insert(tkinter.END, '15')
-        self.e_num_samples.insert(tkinter.END, '5')
-        self.e_t_max.insert(tkinter.END, '3')
+        self.e_motion_bins.insert(tkinter.END, '1')
+        self.e_pos_meas_bins.insert(tkinter.END, '1')
+        self.e_vel_meas_bins.insert(tkinter.END, '1')
+        self.e_num_samples.insert(tkinter.END, '1')
+        self.e_t_max.config(state='disable')
         self.sample_w_motion_noise.set(1)
         self.sample_w_pos_meas_noise.set(1)
+        self.sample_w_vel_meas_noise.set(1)
 
         self.init_pos = float(self.e_max_pos.get())
         self.init_vel = float(self.e_min_vel.get())
@@ -687,12 +750,14 @@ class TK_Interface:
         self.pos_raw = [[] for i in range(int(self.e_num_samples.get()))]
         self.pos_meas_raw = [[] for i in range(int(self.e_num_samples.get()))]
         self.vel_raw = [[] for i in range(int(self.e_num_samples.get()))]
+        self.vel_meas_raw = [[] for i in range(int(self.e_num_samples.get()))]
         self.acc_raw = [[] for i in range(int(self.e_num_samples.get()))]
 
         self.time = [[] for i in range(int(self.e_num_samples.get()))]
         self.pos = [[] for i in range(int(self.e_num_samples.get()))]
         self.pos_meas = [[] for i in range(int(self.e_num_samples.get()))]
         self.vel = [[] for i in range(int(self.e_num_samples.get()))]
+        self.vel_meas = [[] for i in range(int(self.e_num_samples.get()))]
         self.acc = [[] for i in range(int(self.e_num_samples.get()))]
         self.rew = [[[] for i in range(int(self.e_num_samples.get()))] for j in range(0,self.num_rew_terms)]
         self.cum_rew = [[[] for i in range(int(self.e_num_samples.get()))] for j in range(0,self.num_rew_terms)]
@@ -704,7 +769,7 @@ class TK_Interface:
 
             # initialise state
             prev_state = [numpy.nan,numpy.nan]
-            state = [int(float(self.s_init_pos.get()) / self.pos_res), int(float(self.s_init_vel.get()) / self.vel_res)]
+            state = [float(self.s_init_pos.get()) / self.pos_res, float(self.s_init_vel.get()) / self.vel_res]
             t = 0
 
             # populate trajectories
@@ -713,15 +778,18 @@ class TK_Interface:
 
             while traj_end is False:
 
+                # check if traj is ended
+
                 # z dof mode
                 if self.dof_comp.get() == 0:
-                    if state[0] == 0:
+                    if state[0] <= 0:
                         self.t_touch.append(t)
                         self.v_touch.append(state[1]*self.vel_res)
                         at_target = True
                         traj_end = True
 
-                    if (self.sample_w_motion_noise.get() == 0 and self.sample_w_pos_meas_noise.get() == 0 \
+                    if (((self.sample_w_motion_noise.get() == 0 and self.sample_w_pos_meas_noise.get() == 0) or \
+                                 (self.num_motion_bins == 1 and self.num_pos_meas_bins == 1)) \
                                 and prev_state == state and at_target == False):
                         self.t_touch.append(0)
                         self.v_touch.append(0)
@@ -734,32 +802,52 @@ class TK_Interface:
                         self.v_touch.append(0)
                         traj_end = True
 
-                # measurement
+                # position measurement
                 if self.sample_w_pos_meas_noise.get() == 1:
-                    pos_meas = state[0] + numpy.random.choice(numpy.linspace(-self.pos_meas_centre_idx, self.pos_meas_centre_idx, self.num_pos_meas_bins), 1, p=self.crude_pos_meas_hist)
+                    if float(self.policy_mode.get()) == 0:
+                        pos_meas = state[0] + numpy.random.choice(numpy.linspace(-self.pos_meas_centre_idx, self.pos_meas_centre_idx, self.num_pos_meas_bins), 1, p=self.crude_pos_meas_hist)
+                    elif float(self.policy_mode.get()) == 1:
+                        pos_meas = state[0] + numpy.random.normal(0,float(self.pos_meas_centre_idx)/3) if self.pos_meas_centre_idx > 0 else state[0]
                 else:
                     pos_meas = state[0]
 
-                # clip measurements at borders
+                # clip position measurements at borders
                 if self.dof_comp.get() == 0:
-                    if pos_meas < int(float(self.e_min_pos.get())/self.pos_res):
-                        pos_meas = int(float(self.e_min_pos.get())/self.pos_res)
-                    elif pos_meas > int(float(self.e_max_pos.get())/self.pos_res):
-                        pos_meas = int(float(self.e_max_pos.get())/self.pos_res)
+                    if pos_meas < float(self.e_min_pos.get())/self.pos_res:
+                        pos_meas = float(self.e_min_pos.get())/self.pos_res
+                    elif pos_meas > float(self.e_max_pos.get())/self.pos_res:
+                        pos_meas = float(self.e_max_pos.get())/self.pos_res
                 elif self.dof_comp.get() == 1:
-                    if pos_meas > int(float(self.e_max_pos.get())/self.pos_res):
-                        pos_meas = int(float(self.e_max_pos.get()) / self.pos_res)
-                    elif pos_meas < -int(float(self.e_max_pos.get())/self.pos_res):
-                        pos_meas = -int(float(self.e_max_pos.get()) / self.pos_res)
+                    if pos_meas > float(self.e_max_pos.get())/self.pos_res:
+                        pos_meas = float(self.e_max_pos.get()) / self.pos_res
+                    elif pos_meas < -float(self.e_max_pos.get())/self.pos_res:
+                        pos_meas = -float(self.e_max_pos.get()) / self.pos_res
                 elif self.dof_comp.get() == 2:
-                    pos_meas = int(pos_meas+float(self.e_max_pos.get())/self.pos_res) % int(2*float(self.e_max_pos.get())/self.pos_res) - int(float(self.e_max_pos.get())/self.pos_res)
-                    if pos_meas == int(-float(self.e_max_pos.get())/self.pos_res):
-                        pos_meas = int(float(self.e_max_pos.get())/self.pos_res) # to favor 180 over -180
-                state_meas = [pos_meas, state[1]]
+                    pos_meas = pos_meas+float(self.e_max_pos.get())/self.pos_res % 2*float(self.e_max_pos.get())/self.pos_res - float(self.e_max_pos.get())/self.pos_res
+                    if pos_meas == -float(self.e_max_pos.get())/self.pos_res:
+                        pos_meas = float(self.e_max_pos.get())/self.pos_res # to favor 180 over -180
+
+                # velocity measurement
+                vel_meas = numpy.nan
+                if self.sample_w_vel_meas_noise.get() == 1:
+                    if float(self.policy_mode.get()) == 0:
+                        vel_meas = state[1] + numpy.random.choice(numpy.linspace(-self.vel_meas_centre_idx, self.vel_meas_centre_idx, self.num_vel_meas_bins), 1, p=self.crude_vel_meas_hist)
+                    elif float(self.policy_mode.get()) == 1:
+                        vel_meas = state[1] + numpy.random.normal(0,float(self.vel_meas_centre_idx)/3) if self.vel_meas_centre_idx > 0 else state[1]
+                else:
+                    vel_meas = state[1]
+
+                # clip velocity measurement at borders
+                if vel_meas < float(self.e_min_vel.get()) / self.vel_res:
+                    vel_meas = float(self.e_min_vel.get()) / self.vel_res
+                elif vel_meas > float(self.e_max_vel.get()) / self.vel_res:
+                    vel_meas = float(self.e_max_vel.get()) / self.vel_res
+
+                state_meas = [pos_meas, vel_meas]
 
                 policy_state = [abs(state_meas[0]), abs(state_meas[1])]
 
-                target_vel = self.vi.policy[int(self.num_states - policy_state[0] * self.num_actions - self.num_actions + policy_state[1])]
+                target_vel = self.interpolate_policy(policy_state[0], policy_state[1])
 
                 # correct velocity sign
                 if pos_meas < 0:
@@ -769,35 +857,42 @@ class TK_Interface:
                 self.pos_raw[i].append(state[0]) # current pos
                 self.pos_meas_raw[i].append(state_meas[0]) # current measured pos
                 self.vel_raw[i].append(state[1]) # current velocity
+                self.vel_meas_raw[i].append(state_meas[1]) # current velocity
                 self.acc_raw[i].append(target_vel-state[1]) # current accel
                 self.time[i].append(t)
 
+                reward_state = [abs(state[0]), abs(state[1])]
+
                 # update reward arrays
                 for j in range(0,self.num_rew_terms):
-                    self.rew[j][i].append(self.reward_mats[j][int(self.num_states - policy_state[0] * self.num_actions - self.num_actions + policy_state[1]), abs(target_vel)])
+                    self.rew[j][i].append(self.interpolate_reward(reward_state[0], reward_state[1], abs(target_vel), j))
                     self.cum_rew[j][i].append(self.cum_rew[j][i][-1] + self.rew[j][i][-1]) if t > 0 else  self.cum_rew[j][i].append(self.rew[j][i][-1])
 
                 # motion noise
                 if self.sample_w_motion_noise.get() == 1:
-                    new_pos = state[0] - target_vel + numpy.random.choice(numpy.linspace(-self.motion_centre_idx, self.motion_centre_idx, self.num_motion_bins), 1, p=self.crude_motion_hist)
+                    if float(self.policy_mode.get()) == 0:
+                        new_pos = state[0] - target_vel + numpy.random.choice(numpy.linspace(-self.motion_centre_idx, self.motion_centre_idx, self.num_motion_bins), 1, p=self.crude_motion_hist)
+                    elif float(self.policy_mode.get()) == 1:
+                        new_pos = state[0] - target_vel + numpy.random.normal(0, float(self.motion_centre_idx) / 3) if self.motion_centre_idx > 0 else state[0] - target_vel
                 else:
                     new_pos = state[0] - target_vel
 
                 # new position border clipping
                 if self.dof_comp.get() == 0:
-                    if new_pos < int(float(self.e_min_pos.get())/self.pos_res):
-                        new_pos = int(float(self.e_min_pos.get())/self.pos_res)
-                    elif new_pos > int(float(self.e_max_pos.get())/self.pos_res):
-                        new_pos = int(float(self.e_max_pos.get())/self.pos_res)
+                    if new_pos < float(self.e_min_pos.get())/self.pos_res:
+                        new_pos = float(self.e_min_pos.get())/self.pos_res
+                    elif new_pos > float(self.e_max_pos.get())/self.pos_res:
+                        new_pos = float(self.e_max_pos.get())/self.pos_res
                 elif self.dof_comp.get() == 1:
-                    if new_pos > int(float(self.e_max_pos.get())/self.pos_res):
-                        new_pos = int(float(self.e_max_pos.get())/self.pos_res)
-                    elif new_pos < -int(float(self.e_max_pos.get())/self.pos_res):
-                        new_pos = -int(float(self.e_max_pos.get()) / self.pos_res)
+                    if new_pos > float(self.e_max_pos.get())/self.pos_res:
+                        new_pos = float(self.e_max_pos.get())/self.pos_res
+                    elif new_pos < -float(self.e_max_pos.get())/self.pos_res:
+                        new_pos = -float(self.e_max_pos.get()) / self.pos_res
                 elif self.dof_comp.get() == 2:
-                    new_pos = int(new_pos+float(self.e_max_pos.get())/self.pos_res) % int(2*float(self.e_max_pos.get())/self.pos_res) - int(float(self.e_max_pos.get())/self.pos_res)
-                    if new_pos == int(-float(self.e_max_pos.get())/self.pos_res):
-                        new_pos = int(float(self.e_max_pos.get())/self.pos_res) # to favor 180 over -180
+                    new_pos = new_pos+float(self.e_max_pos.get())/self.pos_res % 2*float(self.e_max_pos.get())/self.pos_res - float(self.e_max_pos.get())/self.pos_res
+                    if new_pos == -float(self.e_max_pos.get())/self.pos_res:
+                        new_pos = float(self.e_max_pos.get())/self.pos_res # to favor 180 over -180
+
 
                 prev_state = state
                 state = [new_pos, target_vel]
@@ -809,6 +904,7 @@ class TK_Interface:
             self.pos[i] = [j*self.pos_res for j in self.pos_raw[i]]
             self.pos_meas[i] = [j * self.pos_res for j in self.pos_meas_raw[i]]
             self.vel[i] = [j*self.vel_res for j in self.vel_raw[i]]
+            self.vel_meas[i] = [j*self.vel_res for j in self.vel_meas_raw[i]]
             self.acc[i] = [j*self.vel_res*self.control_freq for j in self.acc_raw[i]]
 
     def compute(self):
@@ -1118,60 +1214,6 @@ class TK_Interface:
         row += 1
         column -=7
 
-        # Noise Parameters #
-        #------------------#
-
-        column += 3
-
-        l_noise = tkinter.Label(f_tb, text='Noise Parameters')
-        l_noise.grid(row=row, column=column)
-
-        row += 1
-        column -= 3
-
-        l_motion_bins = tkinter.Label(f_tb, text='motion bins')
-        l_motion_bins.grid(row=row, column=column)
-
-        column += 1
-
-        self.e_motion_bins = tkinter.Entry(f_tb, width=5)
-        self.e_motion_bins.grid(row=row, column=column)
-
-        column += 1
-
-        l_pos_meas_bins = tkinter.Label(f_tb, text='pos meas bins')
-        l_pos_meas_bins.grid(row=row, column=column)
-
-        column += 1
-
-        self.e_pos_meas_bins = tkinter.Entry(f_tb, width=5)
-        self.e_pos_meas_bins.grid(row=row, column=column)
-
-        column += 1
-
-        l_sample_w_motion_noise = tkinter.Label(f_tb, text='sample with motion noise?')
-        l_sample_w_motion_noise.grid(row=row, column=column)
-
-        column += 1
-
-        self.sample_w_motion_noise = tkinter.IntVar()
-        self.c_sample_w_motion_noise = tkinter.Checkbutton(f_tb, text="yes", variable=self.sample_w_motion_noise)
-        self.c_sample_w_motion_noise.grid(row=row, column=column)
-
-        column += 1
-
-        l_sample_w_pos_meas_noise = tkinter.Label(f_tb, text='sample with pos meas noise?')
-        l_sample_w_pos_meas_noise.grid(row=row, column=column)
-
-        column += 1
-
-        self.sample_w_pos_meas_noise = tkinter.IntVar()
-        self.c_sample_w_pos_meas_noise = tkinter.Checkbutton(f_tb, text="yes", variable=self.sample_w_pos_meas_noise)
-        self.c_sample_w_pos_meas_noise.grid(row=row, column=column)
-
-        row += 1
-        column -= 7
-
         # Plotting Options #
         #------------------#
 
@@ -1221,6 +1263,82 @@ class TK_Interface:
 
         self.r_cont_pol = tkinter.Radiobutton(f_tb, variable=self.policy_mode, value=1)
         self.r_cont_pol.grid(row=row, column=column)
+
+        row += 1
+        column -= 7
+
+        # Noise Parameters #
+        #------------------#
+
+        column += 3
+
+        l_noise = tkinter.Label(f_tb, text='Noise Parameters')
+        l_noise.grid(row=row, column=column)
+
+        row += 1
+        column -= 3
+
+        l_motion_bins = tkinter.Label(f_tb, text='motion bins')
+        l_motion_bins.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_motion_bins = tkinter.Entry(f_tb, width=5)
+        self.e_motion_bins.grid(row=row, column=column)
+
+        column += 1
+
+        l_pos_meas_bins = tkinter.Label(f_tb, text='pos meas bins')
+        l_pos_meas_bins.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_pos_meas_bins = tkinter.Entry(f_tb, width=5)
+        self.e_pos_meas_bins.grid(row=row, column=column)
+
+        column += 1
+
+        l_vel_meas_bins = tkinter.Label(f_tb, text='vel meas bins')
+        l_vel_meas_bins.grid(row=row, column=column)
+
+        column += 1
+
+        self.e_vel_meas_bins = tkinter.Entry(f_tb, width=5)
+        self.e_vel_meas_bins.grid(row=row, column=column)
+
+        row += 1
+        column -= 5
+
+        l_sample_w_motion_noise = tkinter.Label(f_tb, text='sample with motion noise?')
+        l_sample_w_motion_noise.grid(row=row, column=column)
+
+        column += 1
+
+        self.sample_w_motion_noise = tkinter.IntVar()
+        self.c_sample_w_motion_noise = tkinter.Checkbutton(f_tb, text="yes", variable=self.sample_w_motion_noise)
+        self.c_sample_w_motion_noise.grid(row=row, column=column)
+
+        column += 1
+
+        l_sample_w_pos_meas_noise = tkinter.Label(f_tb, text='        sample with pos meas noise?')
+        l_sample_w_pos_meas_noise.grid(row=row, column=column)
+
+        column += 1
+
+        self.sample_w_pos_meas_noise = tkinter.IntVar()
+        self.c_sample_w_pos_meas_noise = tkinter.Checkbutton(f_tb, text="yes", variable=self.sample_w_pos_meas_noise)
+        self.c_sample_w_pos_meas_noise.grid(row=row, column=column)
+
+        column += 1
+
+        l_sample_w_vel_meas_noise = tkinter.Label(f_tb, text='sample with vel meas noise?')
+        l_sample_w_vel_meas_noise.grid(row=row, column=column)
+
+        column += 1
+
+        self.sample_w_vel_meas_noise = tkinter.IntVar()
+        self.c_sample_w_vel_meas_noise = tkinter.Checkbutton(f_tb, text="yes", variable=self.sample_w_vel_meas_noise)
+        self.c_sample_w_vel_meas_noise.grid(row=row, column=column)
 
         row += 1
         column -= 7
