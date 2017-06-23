@@ -1,0 +1,6 @@
+date and time:  2017-06-23 19:10:20.263098
+ dof_comp: 0 min_pos: 0 max_pos: 50 num_positions: 126 min_vel: 0 max_vel: 20 num_actions: 6 discount_factor: 0.99 epsilon: 0.01 max_iter: 1000 dist_factor: 1 vel_factor: 1 vel_den: 0.05 acc_factor: 1 motion_bins: 1 pos_meas_bins: 1 vel_meas_bins: 1 num_samples: 1 t_max:  sample_w_motion_noise: 1 sample_w_pos_meas_noise: 1 sample_w_vel_meas_noise: 1
+
+date and time:  2017-06-23 19:10:26.910970
+ dof_comp: 0 min_pos: 0 max_pos: 50 num_positions: 126 min_vel: 0 max_vel: 20 num_actions: 6 discount_factor: 0.99 epsilon: 0.01 max_iter: 1000 dist_factor: 1 vel_factor: 1 vel_den: 0.05 acc_factor: 1 motion_bins: 1 pos_meas_bins: 1 vel_meas_bins: 1 num_samples: 1 t_max:  sample_w_motion_noise: 1 sample_w_pos_meas_noise: 1 sample_w_vel_meas_noise: 1
+

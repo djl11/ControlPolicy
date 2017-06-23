@@ -7,6 +7,7 @@ import tkinter
 import threading
 import matplotlib.backends.backend_tkagg as tkagg
 import matplotlib.pyplot as plt
+import datetime
 
 class TK_Interface:
 
@@ -685,7 +686,6 @@ class TK_Interface:
 
         # reward matrix
         self.num_rew_terms = 3 + 1 # 3 terms, and one final unified
-        reward_entry_mats = []
         self.reward_mats = []
 
         for i in range(0,self.num_rew_terms):
@@ -706,14 +706,15 @@ class TK_Interface:
                 # velocities
                 vel = j * self.vel_res
                 prev_vel = (i - math.floor(i / self.num_actions) * self.num_actions) * self.vel_res
+                vel_squared = math.pow(vel,2)
 
                 # other terms
-                vel_over_dist = vel / (dist_to_target + float(self.e_max_pos.get()) * float(self.e_vel_den_ratio.get()))
+                vel_squared_over_dist = vel_squared / (dist_to_target + float(self.e_max_pos.get()) * float(self.e_vel_den_ratio.get()))
                 delta_vel_sqaured = pow((vel - prev_vel), 2)
 
                 # total reward of being in this state, given possibilities
                 self.reward_mats[0][i, j] = -float(self.e_dist_factor.get())*dist_to_target
-                self.reward_mats[1][i, j] = -float(self.e_vel_factor.get()) * vel_over_dist
+                self.reward_mats[1][i, j] = -float(self.e_vel_factor.get()) * vel_squared_over_dist
                 self.reward_mats[2][i, j] = -float(self.e_acc_factor.get()) * delta_vel_sqaured
                 self.reward_mats[-1][i, j] = self.reward_mats[0][i, j] + self.reward_mats[1][i, j] + self.reward_mats[2][i, j]
 
@@ -922,6 +923,80 @@ class TK_Interface:
 
     def BP_reset(self):
         self.reset_gui()
+
+    def BP_save(self):
+
+        # mode
+        policy_mode = numpy.nan
+        if self.dof_comp.get() == 0:
+            policy_mode = 'z'
+        elif self.dof_comp.get() == 1:
+            policy_mode = 'xy'
+        elif self.dof_comp.get() == 2:
+            policy_mode = 'ang'
+
+        # save policy
+        policy_file = 'Saved_Policies/Policy_' + policy_mode + '.txt'
+        numpy.savetxt(policy_file, self.vi.policy)
+
+        # log parameters
+        log_params = []
+        log_params.append(' dof_comp: ')
+        log_params.append(self.dof_comp.get())
+        log_params.append(' min_pos: ')
+        log_params.append(self.e_min_pos.get())
+        log_params.append(' max_pos: ')
+        log_params.append(self.e_max_pos.get())
+        log_params.append(' num_positions: ')
+        log_params.append(self.e_num_positions.get())
+        log_params.append(' min_vel: ')
+        log_params.append(self.e_min_vel.get())
+        log_params.append(' max_vel: ')
+        log_params.append(self.e_max_vel.get())
+        log_params.append(' num_actions: ')
+        log_params.append(self.e_num_actions.get())
+        log_params.append(' discount_factor: ')
+        log_params.append(self.e_discount.get())
+        log_params.append(' epsilon: ')
+        log_params.append(self.e_epsilon.get())
+        log_params.append(' max_iter: ')
+        log_params.append(self.e_max_iter.get())
+        log_params.append(' dist_factor: ')
+        log_params.append(self.e_dist_factor.get())
+        log_params.append(' vel_factor: ')
+        log_params.append(self.e_vel_factor.get())
+        log_params.append(' vel_den: ')
+        log_params.append(self.e_vel_den_ratio.get())
+        log_params.append(' acc_factor: ')
+        log_params.append(self.e_acc_factor.get())
+        log_params.append(' motion_bins: ')
+        log_params.append(self.e_motion_bins.get())
+        log_params.append(' pos_meas_bins: ')
+        log_params.append(self.e_pos_meas_bins.get())
+        log_params.append(' vel_meas_bins: ')
+        log_params.append(self.e_vel_meas_bins.get())
+        log_params.append(' num_samples: ')
+        log_params.append(self.e_num_samples.get())
+        log_params.append(' t_max: ')
+        log_params.append(self.e_t_max.get())
+        log_params.append(' sample_w_motion_noise: ')
+        log_params.append(self.sample_w_motion_noise.get())
+        log_params.append(' sample_w_pos_meas_noise: ')
+        log_params.append(self.sample_w_pos_meas_noise.get())
+        log_params.append(' sample_w_vel_meas_noise: ')
+        log_params.append(self.sample_w_vel_meas_noise.get())
+
+        # write to end of log file
+        log_file = 'Saved_Policies/Log.txt'
+        logfile_handle = open(log_file, 'a')
+
+        logfile_handle.write('date and time:  ')
+        logfile_handle.write(str(datetime.datetime.now()))
+        logfile_handle.write('\n')
+        for i in log_params:
+            logfile_handle.write('%s' % i)
+        logfile_handle.write('\n\n')
+
 
     def BP_terminate(self):
         os._exit(os.EX_OK)
@@ -1400,6 +1475,11 @@ class TK_Interface:
 
         b_reset = tkinter.Button(f_b, text='Reset', command=self.BP_reset)
         b_reset.grid(row=row, column=column)
+
+        column += 1
+
+        b_terminate = tkinter.Button(f_b, text='Save Policy', command=self.BP_save)
+        b_terminate.grid(row=row, column=column)
 
         column += 1
 
