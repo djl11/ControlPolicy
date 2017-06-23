@@ -623,10 +623,10 @@ class TK_Interface:
 
         self.update_gui()
 
-    def compute_vi(self):
+    def compute_transitions(self):
 
         # transition matrix
-        transitions = numpy.zeros((self.num_actions, self.num_states, self.num_states))
+        self.transitions = numpy.zeros((self.num_actions, self.num_states, self.num_states))
         no_vel_trans = numpy.zeros((self.num_states, self.num_states))
 
         # setup base zero velocity transition matrix, for vel = 0
@@ -640,25 +640,25 @@ class TK_Interface:
         for i in range(0, self.num_actions):
 
             # roll entire state
-            transitions[i, :, :] = numpy.roll(no_vel_trans[:,:], i * self.num_actions + i, 1)
+            self.transitions[i, :, :] = numpy.roll(no_vel_trans[:,:], i * self.num_actions + i, 1)
 
             #re-normalise border at top
             if self.dof_comp.get() == 0 or self.dof_comp.get() == 1: # z or x-y mode
                 if (i < self.motion_centre_idx):  # if there are border terms
                     for j in range(0, self.motion_centre_idx - i): # iterate over groups
                         # top-left (starting state border)
-                        transitions[i,j*self.num_actions:(j+1)*self.num_actions, i] += numpy.sum(self.crude_motion_hist[0:self.motion_centre_idx - j - i])
+                        self.transitions[i,j*self.num_actions:(j+1)*self.num_actions, i] += numpy.sum(self.crude_motion_hist[0:self.motion_centre_idx - j - i])
                         # top-right (initial rolled over)
                         start = self.num_states - (self.motion_centre_idx - i) * self.num_actions + i
-                        transitions[i, 0:(j + 1) * self.num_actions, start + j*self.num_actions] = 0
+                        self.transitions[i, 0:(j + 1) * self.num_actions, start + j*self.num_actions] = 0
             elif self.dof_comp.get() == 2: # ang mode
                 if (i < self.motion_centre_idx):  # if there are border terms
                     for j in range(0, self.motion_centre_idx - i): # iterate over groups
                         start = self.num_states - (self.motion_centre_idx - i) * self.num_actions + i
                         # mirror rollover terms about lhs border matrix
-                        transitions[i, 0:(j + 1) * self.num_actions, -(start-i+j*self.num_actions) % self.num_states + i] += \
-                            transitions[i, 0:(j + 1) * self.num_actions, start + j * self.num_actions]
-                        transitions[i, 0:(j + 1) * self.num_actions, start + j*self.num_actions] = 0
+                        self.transitions[i, 0:(j + 1) * self.num_actions, -(start-i+j*self.num_actions) % self.num_states + i] += \
+                            self.transitions[i, 0:(j + 1) * self.num_actions, start + j * self.num_actions]
+                        self.transitions[i, 0:(j + 1) * self.num_actions, start + j*self.num_actions] = 0
 
 
             #re-normalise border at bottom
@@ -667,18 +667,20 @@ class TK_Interface:
                     # bottom-right (final state border)
                     start_j = self.num_states+ (j - self.motion_centre_idx - i) * self.num_actions
                     end_j = self.num_states+ (j + 1 - self.motion_centre_idx - i) * self.num_actions
-                    transitions[i,start_j:end_j,self.num_states-self.num_actions+i] += numpy.sum(self.crude_motion_hist[0:j + 1])\
+                    self.transitions[i,start_j:end_j,self.num_states-self.num_actions+i] += numpy.sum(self.crude_motion_hist[0:j + 1])\
                                                                     if j<float(self.e_motion_bins.get()) else 1
                     # bottom-right (final state-rolled over)
-                    transitions[i,start_j:self.num_states, i+j*self.num_actions] = 0
+                    self.transitions[i,start_j:self.num_states, i+j*self.num_actions] = 0
 
             elif self.dof_comp.get() == 1 or self.dof_comp.get() == 2: # x-y or ang mode
                 for j in range(0, self.motion_centre_idx + i):
                     start_j = self.num_states+ (j - self.motion_centre_idx - i) * self.num_actions
                     # mirror rollover terms about rhs border of matrix
-                    transitions[i, start_j:self.num_states, (i-(j+2) * self.num_actions) % self.num_states] += \
-                        transitions[i, start_j:self.num_states, i + j * self.num_actions]
-                    transitions[i, start_j:self.num_states, i + j * self.num_actions] = 0
+                    self.transitions[i, start_j:self.num_states, (i-(j+2) * self.num_actions) % self.num_states] += \
+                        self.transitions[i, start_j:self.num_states, i + j * self.num_actions]
+                    self.transitions[i, start_j:self.num_states, i + j * self.num_actions] = 0
+
+    def compute_rewards(self):
 
         # reward matrix
         self.num_rew_terms = 3 + 1 # 3 terms, and one final unified
@@ -686,47 +688,33 @@ class TK_Interface:
         self.reward_mats = []
 
         for i in range(0,self.num_rew_terms):
-            reward_entry_mats.append(numpy.zeros((self.num_pos_meas_bins)))
             self.reward_mats.append(numpy.zeros((self.num_states, self.num_actions)))
 
         for i in range(0, self.num_states):
             for j in range(0, self.num_actions):
 
-                # each bin averaged reward entry term
+                # dist to target
+                unbounded_dist = abs(math.floor((self.num_states - i -1) / self.num_actions))
+                if unbounded_dist <= 0:
+                    dist_to_target = 0
+                elif unbounded_dist >= self.num_pos_states:
+                    dist_to_target = abs(math.floor((self.num_states-1) / self.num_actions)) * self.pos_res
+                else:
+                    dist_to_target = unbounded_dist * self.pos_res
 
-                for pos_it in range(0,self.num_pos_meas_bins):
+                # velocities
+                vel = j * self.vel_res
+                prev_vel = (i - math.floor(i / self.num_actions) * self.num_actions) * self.vel_res
 
-                    # each component of the bin average
-
-                    # dist to target
-                    unbounded_dist = abs(math.floor((self.num_states - i -1) / self.num_actions)) + pos_it - self.pos_meas_centre_idx
-                    if unbounded_dist <= 0:
-                        dist_to_target = 0
-                    elif unbounded_dist >= self.num_pos_states:
-                        dist_to_target = abs(math.floor((self.num_states-1) / self.num_actions)) * self.pos_res
-                    else:
-                        dist_to_target = unbounded_dist * self.pos_res
-
-                    # velocities
-                    vel = j * self.vel_res
-                    prev_vel = (i - math.floor(i / self.num_actions) * self.num_actions) * self.vel_res
-
-                    # other terms
-                    vel_over_dist = vel / (dist_to_target + float(self.e_max_pos.get()) * float(self.e_vel_den_ratio.get()))
-                    delta_vel_sqaured = pow((vel - prev_vel), 2)
-
-                    # final reward expression for specific belief state
-                    reward_entry_mats[0][pos_it] = -float(self.e_dist_factor.get())*dist_to_target
-                    reward_entry_mats[1][pos_it] = -float(self.e_vel_factor.get()) * vel_over_dist
-                    reward_entry_mats[2][pos_it] = -float(self.e_acc_factor.get()) * delta_vel_sqaured
-                    reward_entry_mats[-1][pos_it] = reward_entry_mats[0][pos_it] + reward_entry_mats[1][pos_it] + reward_entry_mats[2][pos_it]
-
+                # other terms
+                vel_over_dist = vel / (dist_to_target + float(self.e_max_pos.get()) * float(self.e_vel_den_ratio.get()))
+                delta_vel_sqaured = pow((vel - prev_vel), 2)
 
                 # total reward of being in this state, given possibilities
-                self.reward_mats[0][i, j] = numpy.sum(numpy.dot(reward_entry_mats[0], self.crude_pos_meas_hist))
-                self.reward_mats[1][i, j] = numpy.sum(numpy.dot(reward_entry_mats[1], self.crude_pos_meas_hist))
-                self.reward_mats[2][i, j] = numpy.sum(numpy.dot(reward_entry_mats[2], self.crude_pos_meas_hist))
-                self.reward_mats[-1][i, j] = numpy.sum(numpy.dot(reward_entry_mats[-1], self.crude_pos_meas_hist))
+                self.reward_mats[0][i, j] = -float(self.e_dist_factor.get())*dist_to_target
+                self.reward_mats[1][i, j] = -float(self.e_vel_factor.get()) * vel_over_dist
+                self.reward_mats[2][i, j] = -float(self.e_acc_factor.get()) * delta_vel_sqaured
+                self.reward_mats[-1][i, j] = self.reward_mats[0][i, j] + self.reward_mats[1][i, j] + self.reward_mats[2][i, j]
 
 
         # normalise total reward mats
@@ -736,9 +724,10 @@ class TK_Interface:
         self.reward_mats[2] /= divisor
         self.reward_mats[-1] /= divisor
 
-
-        # define value iteration
-        self.vi = mdptoolbox.mdp.ValueIteration(transitions, self.reward_mats[-1], float(self.e_discount.get()), float(self.e_epsilon.get()), float(self.e_max_iter.get()), 0)
+    def compute_vi(self):
+        self.compute_transitions()
+        self.compute_rewards()
+        self.vi = mdptoolbox.mdp.ValueIteration(self.transitions, self.reward_mats[-1], float(self.e_discount.get()), float(self.e_epsilon.get()), float(self.e_max_iter.get()), 0)
         self.vi.run()
 
     def compute_trajs(self):
