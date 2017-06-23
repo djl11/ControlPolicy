@@ -814,18 +814,18 @@ class TK_Interface:
                 # clip position measurements at borders
                 if self.dof_comp.get() == 0:
                     if pos_meas < float(self.e_min_pos.get())/self.pos_res:
-                        pos_meas = float(self.e_min_pos.get())/self.pos_res
+                        pos_meas = int(float(self.e_min_pos.get())/self.pos_res)
                     elif pos_meas > float(self.e_max_pos.get())/self.pos_res:
-                        pos_meas = float(self.e_max_pos.get())/self.pos_res
+                        pos_meas = int(float(self.e_max_pos.get())/self.pos_res)
                 elif self.dof_comp.get() == 1:
                     if pos_meas > float(self.e_max_pos.get())/self.pos_res:
-                        pos_meas = float(self.e_max_pos.get()) / self.pos_res
+                        pos_meas = int(float(self.e_max_pos.get()) / self.pos_res)
                     elif pos_meas < -float(self.e_max_pos.get())/self.pos_res:
-                        pos_meas = -float(self.e_max_pos.get()) / self.pos_res
+                        pos_meas = -int(float(self.e_max_pos.get()) / self.pos_res)
                 elif self.dof_comp.get() == 2:
                     pos_meas = pos_meas+float(self.e_max_pos.get())/self.pos_res % 2*float(self.e_max_pos.get())/self.pos_res - float(self.e_max_pos.get())/self.pos_res
-                    if pos_meas == -float(self.e_max_pos.get())/self.pos_res:
-                        pos_meas = float(self.e_max_pos.get())/self.pos_res # to favor 180 over -180
+                    if pos_meas == -int(float(self.e_max_pos.get())/self.pos_res):
+                        pos_meas = int(float(self.e_max_pos.get())/self.pos_res) # to favor 180 over -180
 
                 # velocity measurement
                 vel_meas = numpy.nan
@@ -839,15 +839,21 @@ class TK_Interface:
 
                 # clip velocity measurement at borders
                 if vel_meas < float(self.e_min_vel.get()) / self.vel_res:
-                    vel_meas = float(self.e_min_vel.get()) / self.vel_res
+                    vel_meas = int(float(self.e_min_vel.get()) / self.vel_res)
                 elif vel_meas > float(self.e_max_vel.get()) / self.vel_res:
-                    vel_meas = float(self.e_max_vel.get()) / self.vel_res
+                    vel_meas = int(float(self.e_max_vel.get()) / self.vel_res)
 
                 state_meas = [pos_meas, vel_meas]
 
                 policy_state = [abs(state_meas[0]), abs(state_meas[1])]
 
                 target_vel = self.interpolate_policy(policy_state[0], policy_state[1])
+
+                # correct for possible interpolation rounding errors, creating out of bounds target vels
+                if target_vel > self.num_actions - 1:
+                    target_vel = self.num_actions - 1
+                elif target_vel < 0:
+                    target_vel = 0
 
                 # correct velocity sign
                 if pos_meas < 0:
@@ -880,18 +886,18 @@ class TK_Interface:
                 # new position border clipping
                 if self.dof_comp.get() == 0:
                     if new_pos < float(self.e_min_pos.get())/self.pos_res:
-                        new_pos = float(self.e_min_pos.get())/self.pos_res
+                        new_pos = int(float(self.e_min_pos.get())/self.pos_res)
                     elif new_pos > float(self.e_max_pos.get())/self.pos_res:
-                        new_pos = float(self.e_max_pos.get())/self.pos_res
+                        new_pos = int(float(self.e_max_pos.get())/self.pos_res)
                 elif self.dof_comp.get() == 1:
                     if new_pos > float(self.e_max_pos.get())/self.pos_res:
-                        new_pos = float(self.e_max_pos.get())/self.pos_res
+                        new_pos = int(float(self.e_max_pos.get())/self.pos_res)
                     elif new_pos < -float(self.e_max_pos.get())/self.pos_res:
-                        new_pos = -float(self.e_max_pos.get()) / self.pos_res
+                        new_pos = -int(float(self.e_max_pos.get()) / self.pos_res)
                 elif self.dof_comp.get() == 2:
                     new_pos = new_pos+float(self.e_max_pos.get())/self.pos_res % 2*float(self.e_max_pos.get())/self.pos_res - float(self.e_max_pos.get())/self.pos_res
-                    if new_pos == -float(self.e_max_pos.get())/self.pos_res:
-                        new_pos = float(self.e_max_pos.get())/self.pos_res # to favor 180 over -180
+                    if new_pos == -int(float(self.e_max_pos.get())/self.pos_res):
+                        new_pos = int(float(self.e_max_pos.get())/self.pos_res) # to favor 180 over -180
 
 
                 prev_state = state
