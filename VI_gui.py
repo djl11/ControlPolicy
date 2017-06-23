@@ -1,13 +1,14 @@
 import os
 import mdptoolbox
 import numpy
-numpy.set_printoptions(linewidth=1000,threshold=numpy.nan)
 import math
 import tkinter
 import threading
 import matplotlib.backends.backend_tkagg as tkagg
 import matplotlib.pyplot as plt
 import datetime
+
+numpy.set_printoptions(linewidth=1000,threshold=numpy.nan)
 
 class TK_Interface:
 
