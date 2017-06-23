@@ -220,8 +220,8 @@ class TK_Interface:
             # reward graph
             self.rew_graph.cla()
             self.rew_graph.set_title('Reward')
-            min_rew = min([min(sublist) for sublist in self.rew[-1]])
-            max_rew = max([max(sublist) for sublist in self.rew[-1]])
+            min_rew = min([min([min(sublist) for sublist in sublist_1]) for sublist_1 in self.rew])
+            max_rew = max([max([max(sublist) for sublist in sublist_1]) for sublist_1 in self.rew])
             mid_rew = (max_rew + min_rew) / 2
             self.rew_y_min = mid_rew - (mid_rew - min_rew) * 1.1
             self.rew_y_max = mid_rew + (max_rew - mid_rew) * 1.1
@@ -236,8 +236,8 @@ class TK_Interface:
             self.cum_rew_graph.cla()
             self.cum_rew_graph.set_xlabel('Time (s)')
             self.cum_rew_graph.set_title('Cumulative Reward')
-            min_cum_rew = min([min(sublist) for sublist in self.cum_rew[-1]])
-            max_cum_rew = max([max(sublist) for sublist in self.cum_rew[-1]])
+            min_cum_rew = min([min([min(sublist) for sublist in sublist_1]) for sublist_1 in self.cum_rew])
+            max_cum_rew = max([max([max(sublist) for sublist in sublist_1]) for sublist_1 in self.cum_rew])
             mid_cum_rew = (max_cum_rew + min_cum_rew) / 2
             self.cum_rew_y_min = mid_cum_rew - (mid_cum_rew - min_cum_rew) * 1.1
             self.cum_rew_y_max = mid_cum_rew + (max_cum_rew - mid_cum_rew) * 1.1
@@ -342,17 +342,18 @@ class TK_Interface:
 
                     # reward y limits
                     self.rew_x_axis.set_xdata(numpy.array([0, self.t_term]))
-                    min_rew = min([min(sublist) for sublist in self.rew[-1]])
-                    max_rew = max([max(sublist) for sublist in self.rew[-1]])
+                    min_rew = min([min([min(sublist) for sublist in sublist_1]) for sublist_1 in self.rew])
+                    max_rew = max([max([max(sublist) for sublist in sublist_1]) for sublist_1 in self.rew])
                     mid_rew = (max_rew + min_rew) / 2
                     self.rew_y_min = mid_rew - (mid_rew - min_rew) * 1.1
                     self.rew_y_max = mid_rew + (max_rew - mid_rew) * 1.1
                     self.rew_graph.set_ylim(self.rew_y_min, self.rew_y_max)
+                    print('y lims set')
 
                     # cumulative reward y limits
                     self.cum_rew_x_axis.set_xdata(numpy.array([0, self.t_term]))
-                    min_cum_rew = min([min(sublist) for sublist in self.cum_rew[-1]])
-                    max_cum_rew = max([max(sublist) for sublist in self.cum_rew[-1]])
+                    min_cum_rew = min([min([min(sublist) for sublist in sublist_1]) for sublist_1 in self.cum_rew])
+                    max_cum_rew = max([max([max(sublist) for sublist in sublist_1]) for sublist_1 in self.cum_rew])
                     mid_cum_rew = (max_cum_rew + min_cum_rew) / 2
                     self.cum_rew_y_min = mid_cum_rew - (mid_cum_rew - min_cum_rew) * 1.1
                     self.cum_rew_y_max = mid_cum_rew + (max_cum_rew - mid_cum_rew) * 1.1
@@ -403,8 +404,8 @@ class TK_Interface:
                 self.mean_rew = self.mean_cum_rew / (self.t_term*self.control_freq) if self.t_term > 0 else 0
 
                 # update rew y lims
-                min_rew = min([min(sublist) for sublist in self.rew[-1]])
-                max_rew = max([max(sublist) for sublist in self.rew[-1]])
+                min_rew = min([min([min(sublist) for sublist in sublist_1]) for sublist_1 in self.rew])
+                max_rew = max([max([max(sublist) for sublist in sublist_1]) for sublist_1 in self.rew])
                 mid_rew = (max_rew + min_rew) / 2
                 if (mid_rew - (mid_rew - min_rew) * 1.1 < self.rew_y_min):
                     self.rew_y_min = mid_rew - (mid_rew - min_rew) * 1.1
@@ -425,8 +426,8 @@ class TK_Interface:
                 self.rew_label.set_position((text_x, text_y))
 
                 # update cum rew y lims
-                min_cum_rew = min([min(sublist) for sublist in self.cum_rew[-1]])
-                max_cum_rew = max([max(sublist) for sublist in self.cum_rew[-1]])
+                min_cum_rew = min([min([min(sublist) for sublist in sublist_1]) for sublist_1 in self.cum_rew])
+                max_cum_rew = max([max([max(sublist) for sublist in sublist_1]) for sublist_1 in self.cum_rew])
                 mid_cum_rew = (max_cum_rew + min_cum_rew) / 2
                 if (mid_cum_rew - (mid_cum_rew - min_cum_rew) * 1.1 < self.cum_rew_y_min):
                     self.cum_rew_y_min = mid_cum_rew - (mid_cum_rew - min_cum_rew) * 1.1
