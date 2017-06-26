@@ -8,6 +8,7 @@ import matplotlib.backends.backend_tkagg as tkagg
 import matplotlib.pyplot as plt
 import datetime
 import transforms3d
+from mpl_toolkits.mplot3d import axes3d, Axes3D
 
 numpy.set_printoptions(linewidth=1000,threshold=numpy.nan)
 
@@ -18,27 +19,25 @@ class TK_Interface:
 
     def compute_ef_coords(self):
 
-        origin = numpy.array([0, 0, 0, 1])
+        origin = numpy.array([0, 0, 0])
+        x_axis = numpy.array([0.1, 0, 0])
+        y_axis = numpy.array([0, 0.1, 0])
+        z_axis = numpy.array([0, 0, 0.1])
 
-        dx = 0.5
-        dy = 0.5
-        dz = 0.5
-
-        T = numpy.array([dx, dy, dz])
-
-        roll = 0
-        pitch = 0
-        yaw = 0
+        roll = 90 * math.pi/180
+        pitch = 45 * math.pi/180
+        yaw = -45 * math.pi/180
 
         R = transforms3d.euler.euler2mat(roll, pitch, yaw, 'sxyz')
 
-        Z = numpy.array([1,1,1])
+        print('rotation matrix:\n' + str(R) + '\n')
 
-        Affine_Mat = transforms3d.affines.compose(T, R, Z)
+        Ef_origin = numpy.matmul(R, origin)
+        Ef_x_axis = numpy.matmul(R, x_axis)
+        Ef_y_axis = numpy.matmul(R, y_axis)
+        Ef_z_axis = numpy.matmul(R, z_axis)
 
-        Ef_coords = Affine_Mat * origin
-
-        print(Ef_coords)
+        print('EF coords:\n' + str(Ef_origin) + '\n' + str(Ef_x_axis) + '\n' + str(Ef_y_axis) + '\n' + str(Ef_z_axis) + '\n')
 
     def init_plot(self):
 
@@ -48,17 +47,13 @@ class TK_Interface:
 
         # trajectory plots
         self.traj_fig = plt.figure()
-        self.traj_graph = self.traj_fig.add_subplot(1,1,1, projection='3d')
+        self.traj_graph = self.traj_fig.add_subplot(111, projection='3d')
         self.traj_graph.set_xlim(0,1)
         self.traj_graph.set_ylim(0,1)
         self.traj_graph.set_zlim(0,1)
 
         self.EF_x_line = self.traj_graph.plot()
-
-        plt.ioff()
-
         self.traj_fig.tight_layout()  # turn on tight-layout
-
         self.plot_samples = 0
 
     def update_plot(self, recomputed_flag):
@@ -389,13 +384,16 @@ class TK_Interface:
     # GUI Interaction Functions #
     #---------------------------#
 
+    def BP_terminate(self):
+        os._exit(os.EX_OK)
+
     def S_init_pos(self, v):
         self.init_pos = float(v)
-        #self.update_plot(recomputed_flag=False)
+        self.update_plot(recomputed_flag=False)
 
     def S_init_vel(self, v):
         self.init_vel = float(v)
-        #self.update_plot(recomputed_flag=False)
+        self.update_plot(recomputed_flag=False)
 
     # Main GUI Loop Funcion #
     #-----------------------#
@@ -444,7 +442,7 @@ class TK_Interface:
         # Buttons #
         #---------#
 
-        b_terminate = tkinter.Button(f_b, text='Terminate', command=self.BP_terminate)
+        b_terminate = tkinter.Button(self.tk_root, text='Terminate', command=self.BP_terminate)
         b_terminate.grid(row=row, column=column)
 
         row += 1
@@ -458,12 +456,12 @@ class TK_Interface:
         row = 0
         column = 0
 
-        l_plots = tkinter.Label(f_p, text='Plots')
+        l_plots = tkinter.Label(self.tk_root, text='Plots')
         l_plots.grid(row=row, column=column)
 
         row += 1
 
-        self.c_policy_plot = tkagg.FigureCanvasTkAgg(self.policy_fig, master=f_p)
+        self.c_policy_plot = tkagg.FigureCanvasTkAgg(self.traj_fig, master=self.tk_root)
         self.c_policy_plot.get_tk_widget().grid(row=row, column=column)
         self.c_policy_plot._tkcanvas.grid(row=row, column=column) # not sure if needed?
 
@@ -486,7 +484,7 @@ def main():
     tk_interface = TK_Interface()
 
     # start tkinter gui
-    #threading.Thread(target=tk_interface.tkinter_loop).start()
+    threading.Thread(target=tk_interface.tkinter_loop).start()
 
     tk_interface.compute_ef_coords()
 

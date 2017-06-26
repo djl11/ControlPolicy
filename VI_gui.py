@@ -998,7 +998,6 @@ class TK_Interface:
             logfile_handle.write('%s' % i)
         logfile_handle.write('\n\n')
 
-
     def BP_terminate(self):
         os._exit(os.EX_OK)
 
